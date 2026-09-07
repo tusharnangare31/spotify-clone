@@ -1,18 +1,27 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, User } from 'lucide-react';
+import type { SpotifyAlbum } from './types/spotify';
 import { PlayerProvider } from './context/PlayerContext';
 import { Sidebar } from './components/Sidebar';
 import { PlayerBar } from './components/PlayerBar';
 import { HomeView } from './components/HomeView';
 import { SearchView } from './components/SearchView';
+import { AlbumView } from './components/AlbumView';
 
 function SpotifyApp() {
   const [currentView, setCurrentView] = useState<'home' | 'search' | 'library'>('home');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAlbum, setSelectedAlbum] = useState<SpotifyAlbum | null>(null);
 
   const handleSelectSearchQuery = (q: string) => {
+    setSelectedAlbum(null);
     setSearchQuery(q);
     setCurrentView('search');
+  };
+
+  const handleViewChange = (view: 'home' | 'search' | 'library') => {
+    setSelectedAlbum(null);
+    setCurrentView(view);
   };
 
   return (
@@ -22,7 +31,7 @@ function SpotifyApp() {
         {/* Sidebar */}
         <Sidebar
           currentView={currentView}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleViewChange}
           onSelectSearchQuery={handleSelectSearchQuery}
         />
 
@@ -33,14 +42,17 @@ function SpotifyApp() {
             {/* History navigation */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setCurrentView('home')}
+                onClick={() => {
+                  if (selectedAlbum) setSelectedAlbum(null);
+                  else handleViewChange('home');
+                }}
                 className="w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white transition-colors"
-                title="Go to Home"
+                title="Go back"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
-                onClick={() => setCurrentView('search')}
+                onClick={() => handleViewChange('search')}
                 className="w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white transition-colors"
                 title="Go to Search"
               >
@@ -51,7 +63,7 @@ function SpotifyApp() {
             {/* User Profile Badge */}
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setCurrentView('search')}
+                onClick={() => handleViewChange('search')}
                 className="md:hidden text-xs bg-white text-black font-bold px-3 py-1.5 rounded-full"
               >
                 Search
@@ -67,21 +79,32 @@ function SpotifyApp() {
 
           {/* Dynamic View Scrollable Container */}
           <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#1e3264]/40 via-spotify-dark/80 to-spotify-dark">
-            {currentView === 'home' && <HomeView />}
-            {currentView === 'search' && <SearchView initialQuery={searchQuery} />}
-            {currentView === 'library' && (
-              <div className="p-8 text-center text-spotify-gray space-y-4">
-                <h2 className="text-2xl font-bold text-white">Your Library</h2>
-                <p className="text-sm max-w-sm mx-auto">
-                  Playlists and liked songs you play will be saved directly into your local library!
-                </p>
-                <button
-                  onClick={() => setCurrentView('home')}
-                  className="bg-white text-black font-bold text-sm px-6 py-2.5 rounded-full hover:scale-105 transition-transform"
-                >
-                  Explore Home
-                </button>
-              </div>
+            {selectedAlbum ? (
+              <AlbumView album={selectedAlbum} onBack={() => setSelectedAlbum(null)} />
+            ) : (
+              <>
+                {currentView === 'home' && <HomeView onSelectAlbum={(album) => setSelectedAlbum(album)} />}
+                {currentView === 'search' && (
+                  <SearchView
+                    initialQuery={searchQuery}
+                    onSelectAlbum={(album) => setSelectedAlbum(album)}
+                  />
+                )}
+                {currentView === 'library' && (
+                  <div className="p-8 text-center text-spotify-gray space-y-4">
+                    <h2 className="text-2xl font-bold text-white">Your Library</h2>
+                    <p className="text-sm max-w-sm mx-auto">
+                      Playlists and liked songs you play will be saved directly into your local library!
+                    </p>
+                    <button
+                      onClick={() => handleViewChange('home')}
+                      className="bg-white text-black font-bold text-sm px-6 py-2.5 rounded-full hover:scale-105 transition-transform"
+                    >
+                      Explore Home
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </main>

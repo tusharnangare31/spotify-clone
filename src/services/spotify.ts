@@ -249,27 +249,64 @@ export async function getPlaylistTracks(playlistId: string): Promise<SpotifyTrac
 }
 
 /**
- * Get Album Tracks
+ * Get Album Tracks (Supports Spotify, iTunes collection lookup, and name search)
  */
-export async function getAlbumTracks(albumId: string): Promise<SpotifyTrack[]> {
+export async function getAlbumTracks(albumId: string, albumName?: string): Promise<SpotifyTrack[]> {
   const token = await getSpotifyToken();
   if (token && !isSpotifyRestricted) {
     try {
       const albumRes = await fetch(`https://api.spotify.com/v1/albums/${albumId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const album = await albumRes.json();
-      const tracksRes = await fetch(`https://api.spotify.com/v1/albums/${albumId}/tracks?limit=30`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await tracksRes.json();
-      return (data.items || []).map((t: any) => ({
-        ...t,
-        album: { id: album.id, name: album.name, images: album.images },
-      }));
+      if (albumRes.ok) {
+        const album = await albumRes.json();
+        const tracksRes = await fetch(`https://api.spotify.com/v1/albums/${albumId}/tracks?limit=30`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (tracksRes.ok) {
+          const data = await tracksRes.json();
+          return (data.items || []).map((t: any) => ({
+            ...t,
+            album: { id: album.id, name: album.name, images: album.images },
+          }));
+        }
+      }
     } catch {}
   }
 
+  // 1. If albumId is numeric, use direct iTunes lookup
+  if (/^\d+$/.test(albumId)) {
+    try {
+      const lookupRes = await fetch(`https://itunes.apple.com/lookup?id=${albumId}&entity=song`);
+      if (lookupRes.ok) {
+        const data = await lookupRes.json();
+        const rawTracks = (data.results || []).filter((r: any) => r.wrapperType === 'track');
+        if (rawTracks.length > 0) {
+          return rawTracks.map((item: any) => ({
+            id: String(item.trackId),
+            name: item.trackName,
+            artists: [{ id: String(item.artistId), name: item.artistName }],
+            album: {
+              id: String(item.collectionId),
+              name: item.collectionName || albumName || 'Album',
+              images: [{ url: upscaleArtwork(item.artworkUrl100) }],
+            },
+            duration_ms: item.trackTimeMillis || 210000,
+          }));
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Lookup by album title if provided
+  if (albumName) {
+    const res = await itunesSearch(albumName, 25);
+    if (res.tracks.length > 0) {
+      return res.tracks;
+    }
+  }
+
+  // 3. Fallback
   const res = await itunesSearch('Latest Hits', 15);
   return res.tracks;
 }

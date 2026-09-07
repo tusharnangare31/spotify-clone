@@ -6,6 +6,7 @@ import { usePlayer } from '../context/PlayerContext';
 
 interface SearchViewProps {
   initialQuery?: string;
+  onSelectAlbum?: (album: SpotifyAlbum) => void;
 }
 
 function formatDuration(ms: number): string {
@@ -15,7 +16,7 @@ function formatDuration(ms: number): string {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '' }) => {
+export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '', onSelectAlbum }) => {
   const [query, setQuery] = useState(initialQuery);
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [albums, setAlbums] = useState<SpotifyAlbum[]>([]);
@@ -208,10 +209,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '' }) => 
                 {albums.slice(0, 6).map((album) => (
                   <div
                     key={album.id}
-                    onClick={async () => {
-                      const albumTracks = await getAlbumTracks(album.id);
-                      if (albumTracks.length > 0) playTrack(albumTracks[0], albumTracks);
-                    }}
+                    onClick={() => onSelectAlbum?.(album)}
                     className="bg-spotify-light/60 p-3.5 rounded-lg hover:bg-spotify-light transition-all duration-200 cursor-pointer group flex flex-col"
                   >
                     <div className="aspect-square w-full rounded-md mb-3.5 relative overflow-hidden shadow-lg bg-[#222]">
@@ -220,7 +218,14 @@ export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '' }) => 
                         alt={album.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      <button className="absolute bottom-2 right-2 w-10 h-10 bg-spotify-green rounded-full flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all shadow-2xl hover:scale-105 active:scale-95">
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const albumTracks = await getAlbumTracks(album.id, album.name);
+                          if (albumTracks.length > 0) playTrack(albumTracks[0], albumTracks);
+                        }}
+                        className="absolute bottom-2 right-2 w-10 h-10 bg-spotify-green rounded-full flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all shadow-2xl hover:scale-105 active:scale-95"
+                      >
                         <Play size={18} fill="currentColor" className="ml-0.5" />
                       </button>
                     </div>

@@ -4,7 +4,11 @@ import type { SpotifyAlbum, SpotifyPlaylist } from '../types/spotify';
 import { getNewReleases, getFeaturedPlaylists, getAlbumTracks, getPlaylistTracks } from '../services/spotify';
 import { usePlayer } from '../context/PlayerContext';
 
-export const HomeView: React.FC = () => {
+interface HomeViewProps {
+  onSelectAlbum?: (album: SpotifyAlbum) => void;
+}
+
+export const HomeView: React.FC<HomeViewProps> = ({ onSelectAlbum }) => {
   const [albums, setAlbums] = useState<SpotifyAlbum[]>([]);
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,8 +41,9 @@ export const HomeView: React.FC = () => {
     loadData();
   }, []);
 
-  const handlePlayAlbum = async (albumId: string) => {
-    const tracks = await getAlbumTracks(albumId);
+  const handlePlayAlbum = async (album: SpotifyAlbum, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const tracks = await getAlbumTracks(album.id, album.name);
     if (tracks.length > 0) {
       playTrack(tracks[0], tracks);
     }
@@ -103,7 +108,7 @@ export const HomeView: React.FC = () => {
           {albums.map((album) => (
             <div
               key={album.id}
-              onClick={() => handlePlayAlbum(album.id)}
+              onClick={() => onSelectAlbum?.(album)}
               className="bg-spotify-light/60 p-3.5 rounded-lg hover:bg-spotify-light transition-all duration-200 cursor-pointer group flex flex-col"
             >
               <div className="aspect-square w-full rounded-md mb-3.5 relative overflow-hidden shadow-lg bg-[#222]">
@@ -113,6 +118,7 @@ export const HomeView: React.FC = () => {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <button
+                  onClick={(e) => handlePlayAlbum(album, e)}
                   className="absolute bottom-2 right-2 w-10 h-10 bg-spotify-green rounded-full flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 shadow-2xl hover:scale-105 active:scale-95"
                   title={`Play ${album.name}`}
                 >
