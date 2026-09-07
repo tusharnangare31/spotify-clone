@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Play, Pause, Loader2, Music2 } from 'lucide-react';
+import { Search, Play, Pause, Loader2, Music2, Heart, Plus } from 'lucide-react';
 import type { SpotifyAlbum, SpotifyTrack } from '../types/spotify';
 import { searchSpotify, getAlbumTracks } from '../services/spotify';
 import { usePlayer } from '../context/PlayerContext';
+import { isTrackLiked, toggleLikeTrack } from '../services/storage';
 
 interface SearchViewProps {
   initialQuery?: string;
   onSelectAlbum?: (album: SpotifyAlbum) => void;
+  onAddToPlaylist?: (track: SpotifyTrack) => void;
 }
 
 function formatDuration(ms: number): string {
@@ -16,7 +18,7 @@ function formatDuration(ms: number): string {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '', onSelectAlbum }) => {
+export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '', onSelectAlbum, onAddToPlaylist }) => {
   const [query, setQuery] = useState(initialQuery);
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [albums, setAlbums] = useState<SpotifyAlbum[]>([]);
@@ -191,9 +193,37 @@ export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '', onSel
                         </div>
                       </div>
 
-                      <span className="text-xs text-spotify-gray font-mono pr-2 shrink-0">
-                        {formatDuration(track.duration_ms)}
-                      </span>
+                      <div className="flex items-center gap-3 pr-2 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleLikeTrack(track);
+                          }}
+                          className={`p-1.5 rounded-full transition-all ${
+                            isTrackLiked(track.id)
+                              ? 'text-spotify-green'
+                              : 'text-spotify-gray opacity-0 group-hover:opacity-100 hover:text-white'
+                          }`}
+                          title={isTrackLiked(track.id) ? 'Unlike' : 'Like'}
+                        >
+                          <Heart size={16} fill={isTrackLiked(track.id) ? 'currentColor' : 'none'} />
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddToPlaylist?.(track);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-spotify-gray hover:text-white transition-all p-1"
+                          title="Add to playlist"
+                        >
+                          <Plus size={16} />
+                        </button>
+
+                        <span className="text-xs text-spotify-gray font-mono w-10 text-right">
+                          {formatDuration(track.duration_ms)}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}

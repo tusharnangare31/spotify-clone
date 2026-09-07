@@ -1,17 +1,43 @@
-import React from 'react';
-import { Home, Search, Library, PlusSquare, Heart } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Home, Search, Library, Plus, Heart, ListMusic } from 'lucide-react';
+import type { CustomPlaylist } from '../services/storage';
+import { getCustomPlaylists } from '../services/storage';
 
 interface SidebarProps {
   currentView: 'home' | 'search' | 'library';
   setCurrentView: (view: 'home' | 'search' | 'library') => void;
+  onOpenLikedSongs: () => void;
+  onOpenCustomPlaylist: (playlistId: string) => void;
+  onCreatePlaylist: () => void;
   onSelectSearchQuery?: (q: string) => void;
+  isLikedActive?: boolean;
+  activePlaylistId?: string | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
   setCurrentView,
+  onOpenLikedSongs,
+  onOpenCustomPlaylist,
+  onCreatePlaylist,
   onSelectSearchQuery,
+  isLikedActive,
+  activePlaylistId,
 }) => {
+  const [customPlaylists, setCustomPlaylists] = useState<CustomPlaylist[]>([]);
+
+  const loadPlaylists = () => {
+    setCustomPlaylists(getCustomPlaylists());
+  };
+
+  useEffect(() => {
+    loadPlaylists();
+    window.addEventListener('spotify_storage_change', loadPlaylists);
+    return () => {
+      window.removeEventListener('spotify_storage_change', loadPlaylists);
+    };
+  }, []);
+
   const quickCategories = [
     'Bollywood Hits',
     'Top 50 - Global',
@@ -29,7 +55,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={() => setCurrentView('home')}
           className={`w-full flex items-center gap-4 transition-colors font-bold text-sm ${
-            currentView === 'home' ? 'text-white' : 'text-spotify-gray hover:text-white'
+            currentView === 'home' && !isLikedActive && !activePlaylistId
+              ? 'text-white'
+              : 'text-spotify-gray hover:text-white'
           }`}
         >
           <Home size={24} />
@@ -39,7 +67,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={() => setCurrentView('search')}
           className={`w-full flex items-center gap-4 transition-colors font-bold text-sm ${
-            currentView === 'search' ? 'text-white' : 'text-spotify-gray hover:text-white'
+            currentView === 'search' && !isLikedActive && !activePlaylistId
+              ? 'text-white'
+              : 'text-spotify-gray hover:text-white'
           }`}
         >
           <Search size={24} />
@@ -57,20 +87,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Library size={22} />
             <span>Your Library</span>
           </button>
-          <button title="Create Playlist" className="hover:text-white">
-            <PlusSquare size={20} />
+          <button
+            onClick={onCreatePlaylist}
+            title="Create Playlist"
+            className="p-1 hover:bg-white/10 rounded-full text-spotify-gray hover:text-white transition-all"
+          >
+            <Plus size={20} />
           </button>
         </div>
 
         {/* Liked songs button */}
         <div
-          onClick={() => {
-            setCurrentView('search');
-            onSelectSearchQuery?.('Liked Songs');
-          }}
-          className="flex items-center gap-3 p-2 rounded-md hover:bg-white/10 cursor-pointer transition-colors"
+          onClick={onOpenLikedSongs}
+          className={`flex items-center gap-3 p-2 rounded-md hover:bg-white/10 cursor-pointer transition-colors ${
+            isLikedActive ? 'bg-white/15 text-white' : ''
+          }`}
         >
-          <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-600 to-blue-300 flex items-center justify-center text-white shrink-0">
+          <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-600 to-blue-300 flex items-center justify-center text-white shrink-0 shadow-md">
             <Heart size={16} fill="currentColor" />
           </div>
           <div className="truncate">
@@ -78,6 +111,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <p className="text-xs text-spotify-gray">Playlist</p>
           </div>
         </div>
+
+        {/* Custom Playlists list */}
+        {customPlaylists.length > 0 && (
+          <div className="space-y-1 mt-2">
+            {customPlaylists.map((pl) => {
+              const isActive = activePlaylistId === pl.id;
+              return (
+                <div
+                  key={pl.id}
+                  onClick={() => onOpenCustomPlaylist(pl.id)}
+                  className={`flex items-center gap-3 p-2 rounded-md hover:bg-white/10 cursor-pointer transition-colors ${
+                    isActive ? 'bg-white/15 text-white' : ''
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded bg-[#282828] flex items-center justify-center text-spotify-gray shrink-0">
+                    <ListMusic size={16} />
+                  </div>
+                  <div className="truncate">
+                    <p
+                      className={`text-sm font-semibold truncate ${
+                        isActive ? 'text-spotify-green' : 'text-white'
+                      }`}
+                    >
+                      {pl.name}
+                    </p>
+                    <p className="text-xs text-spotify-gray">{pl.tracks.length} songs</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="border-t border-white/10 my-3" />
 
@@ -87,7 +152,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <p
               key={cat}
               onClick={() => {
-                setCurrentView('search');
                 onSelectSearchQuery?.(cat);
               }}
               className="hover:text-white cursor-pointer truncate transition-colors text-[13px]"

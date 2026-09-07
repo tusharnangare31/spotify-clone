@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Play,
   Pause,
@@ -12,6 +12,7 @@ import {
   Repeat,
 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
+import { isTrackLiked, toggleLikeTrack } from '../services/storage';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return '0:00';
@@ -37,6 +38,17 @@ export const PlayerBar: React.FC = () => {
 
   const [isLiked, setIsLiked] = useState(false);
   const [prevVolume, setPrevVolume] = useState(80);
+
+  useEffect(() => {
+    const updateLiked = () => {
+      setIsLiked(isTrackLiked(currentTrack?.id));
+    };
+    updateLiked();
+    window.addEventListener('spotify_storage_change', updateLiked);
+    return () => {
+      window.removeEventListener('spotify_storage_change', updateLiked);
+    };
+  }, [currentTrack]);
 
   const albumImage =
     currentTrack?.album?.images?.[0]?.url ||
@@ -85,10 +97,16 @@ export const PlayerBar: React.FC = () => {
 
         {currentTrack && (
           <button
-            onClick={() => setIsLiked((v) => !v)}
+            onClick={() => {
+              if (currentTrack) {
+                const status = toggleLikeTrack(currentTrack);
+                setIsLiked(status);
+              }
+            }}
             className={`text-spotify-gray hover:text-white transition-colors p-1 ${
               isLiked ? 'text-spotify-green hover:text-spotify-green' : ''
             }`}
+            title={isLiked ? 'Remove from Your Library' : 'Save to Your Library'}
           >
             <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
           </button>
