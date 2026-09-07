@@ -9,6 +9,7 @@ interface SearchViewProps {
   initialQuery?: string;
   onSelectAlbum?: (album: SpotifyAlbum) => void;
   onAddToPlaylist?: (track: SpotifyTrack) => void;
+  onSelectArtist?: (name: string, id?: string) => void;
 }
 
 function formatDuration(ms: number): string {
@@ -18,7 +19,12 @@ function formatDuration(ms: number): string {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '', onSelectAlbum, onAddToPlaylist }) => {
+export const SearchView: React.FC<SearchViewProps> = ({
+  initialQuery = '',
+  onSelectAlbum,
+  onAddToPlaylist,
+  onSelectArtist,
+}) => {
   const [query, setQuery] = useState(initialQuery);
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [albums, setAlbums] = useState<SpotifyAlbum[]>([]);
@@ -132,7 +138,14 @@ export const SearchView: React.FC<SearchViewProps> = ({ initialQuery = '', onSel
                   <div>
                     <h3 className="text-2xl font-bold text-white truncate mb-1">{topTrack.name}</h3>
                     <p className="text-sm text-spotify-gray">
-                      <span className="text-white font-semibold">
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const name = topTrack.artists?.[0]?.name;
+                          if (name) onSelectArtist?.(name);
+                        }}
+                        className="text-white font-semibold hover:underline cursor-pointer"
+                      >
                         {topTrack.artists?.map((a) => a.name).join(', ')}
                       </span>{' '}
                       • Song

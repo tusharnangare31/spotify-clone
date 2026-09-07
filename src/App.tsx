@@ -7,6 +7,7 @@ import { PlayerBar } from './components/PlayerBar';
 import { HomeView } from './components/HomeView';
 import { SearchView } from './components/SearchView';
 import { AlbumView } from './components/AlbumView';
+import { ArtistView } from './components/ArtistView';
 import { LikedSongsView } from './components/LikedSongsView';
 import { PlaylistView } from './components/PlaylistView';
 import { PlaylistModal } from './components/PlaylistModal';
@@ -16,6 +17,7 @@ function SpotifyApp() {
   const [currentView, setCurrentView] = useState<'home' | 'search' | 'library'>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAlbum, setSelectedAlbum] = useState<SpotifyAlbum | null>(null);
+  const [selectedArtist, setSelectedArtist] = useState<{ name: string; id?: string } | null>(null);
 
   // Liked Songs & Custom Playlists state
   const [isLikedOpen, setIsLikedOpen] = useState(false);
@@ -23,35 +25,45 @@ function SpotifyApp() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [trackToAdd, setTrackToAdd] = useState<SpotifyTrack | null>(null);
 
-  const handleSelectSearchQuery = (q: string) => {
+  const resetOverlays = () => {
     setSelectedAlbum(null);
+    setSelectedArtist(null);
     setIsLikedOpen(false);
     setActivePlaylistId(null);
+  };
+
+  const handleSelectSearchQuery = (q: string) => {
+    resetOverlays();
     setSearchQuery(q);
     setCurrentView('search');
   };
 
   const handleViewChange = (view: 'home' | 'search' | 'library') => {
-    setSelectedAlbum(null);
-    setIsLikedOpen(false);
-    setActivePlaylistId(null);
+    resetOverlays();
     setCurrentView(view);
   };
 
   const handleOpenLiked = () => {
-    setSelectedAlbum(null);
-    setActivePlaylistId(null);
+    resetOverlays();
     setIsLikedOpen(true);
   };
 
   const handleOpenPlaylist = (playlistId: string) => {
-    setSelectedAlbum(null);
-    setIsLikedOpen(false);
+    resetOverlays();
     setActivePlaylistId(playlistId);
   };
 
+  const handleOpenArtist = (name: string, id?: string) => {
+    setSelectedAlbum(null);
+    setIsLikedOpen(false);
+    setActivePlaylistId(null);
+    setSelectedArtist({ name, id });
+  };
+
   const handleBackNavigation = () => {
-    if (selectedAlbum) {
+    if (selectedArtist) {
+      setSelectedArtist(null);
+    } else if (selectedAlbum) {
       setSelectedAlbum(null);
     } else if (isLikedOpen) {
       setIsLikedOpen(false);
@@ -62,7 +74,7 @@ function SpotifyApp() {
     }
   };
 
-  const hasOverlayView = Boolean(selectedAlbum || isLikedOpen || activePlaylistId);
+  const hasOverlayView = Boolean(selectedArtist || selectedAlbum || isLikedOpen || activePlaylistId);
 
   return (
     <div className="flex flex-col h-screen bg-spotify-darker text-white overflow-hidden select-none font-sans">
@@ -102,6 +114,16 @@ function SpotifyApp() {
               </button>
             </div>
 
+            {/* Quick Artist Showcase: Pritam */}
+            <button
+              onClick={() => handleOpenArtist('Pritam', '1wRPtKGflJrBx9BmLsSwlU')}
+              className="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 text-xs font-bold text-white px-3 py-1.5 rounded-full transition-all border border-white/10"
+              title="Open Pritam Official Page"
+            >
+              <span className="w-2 h-2 rounded-full bg-spotify-green"></span>
+              Pritam (Official)
+            </button>
+
             {/* User Profile Badge */}
             <div className="flex items-center gap-3">
               <button
@@ -121,22 +143,35 @@ function SpotifyApp() {
 
           {/* Dynamic View Scrollable Container */}
           <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#1e3264]/40 via-spotify-dark/80 to-spotify-dark">
-            {/* 1. Album Detail View */}
-            {selectedAlbum && (
-              <AlbumView
-                album={selectedAlbum}
-                onBack={() => setSelectedAlbum(null)}
+            {/* 1. Artist Detail View (e.g. Pritam) */}
+            {selectedArtist && (
+              <ArtistView
+                artistName={selectedArtist.name}
+                artistId={selectedArtist.id}
+                onBack={() => setSelectedArtist(null)}
+                onSelectAlbum={(album) => setSelectedAlbum(album)}
+                onSelectArtist={(name, id) => setSelectedArtist({ name, id })}
                 onAddToPlaylist={(t) => setTrackToAdd(t)}
               />
             )}
 
-            {/* 2. Liked Songs View */}
-            {isLikedOpen && (
+            {/* 2. Album Detail View */}
+            {selectedAlbum && !selectedArtist && (
+              <AlbumView
+                album={selectedAlbum}
+                onBack={() => setSelectedAlbum(null)}
+                onAddToPlaylist={(t) => setTrackToAdd(t)}
+                onSelectArtist={(name, id) => handleOpenArtist(name, id)}
+              />
+            )}
+
+            {/* 3. Liked Songs View */}
+            {isLikedOpen && !selectedAlbum && !selectedArtist && (
               <LikedSongsView onBack={() => setIsLikedOpen(false)} />
             )}
 
-            {/* 3. Custom Playlist View */}
-            {activePlaylistId && (
+            {/* 4. Custom Playlist View */}
+            {activePlaylistId && !selectedAlbum && !selectedArtist && (
               <PlaylistView
                 playlistId={activePlaylistId}
                 onBack={() => setActivePlaylistId(null)}
@@ -145,7 +180,7 @@ function SpotifyApp() {
               />
             )}
 
-            {/* 4. Base Views (Preserved in memory) */}
+            {/* 5. Base Views (Preserved in memory) */}
             <div className={hasOverlayView ? 'hidden' : 'block'}>
               <div className={currentView === 'home' ? 'block' : 'hidden'}>
                 <HomeView onSelectAlbum={(album) => setSelectedAlbum(album)} />
@@ -155,6 +190,7 @@ function SpotifyApp() {
                 <SearchView
                   initialQuery={searchQuery}
                   onSelectAlbum={(album) => setSelectedAlbum(album)}
+                  onSelectArtist={(name, id) => handleOpenArtist(name, id)}
                   onAddToPlaylist={(t) => setTrackToAdd(t)}
                 />
               </div>

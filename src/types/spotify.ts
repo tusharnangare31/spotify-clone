@@ -37,3 +37,13 @@ export interface SpotifyPlaylist {
     total: number;
   };
 }
+
+export interface SpotifyArtistDetail {
+  id: string;
+  name: string;
+  images: SpotifyImage[];
+  monthlyListeners?: string;
+  genres?: string[];
+  bio?: string;
+  verified?: boolean;
+}

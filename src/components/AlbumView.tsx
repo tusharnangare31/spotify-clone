@@ -9,6 +9,7 @@ interface AlbumViewProps {
   album: SpotifyAlbum;
   onBack: () => void;
   onAddToPlaylist?: (track: SpotifyTrack) => void;
+  onSelectArtist?: (name: string, id?: string) => void;
 }
 
 function formatDuration(ms: number): string {
@@ -18,7 +19,12 @@ function formatDuration(ms: number): string {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-export const AlbumView: React.FC<AlbumViewProps> = ({ album, onBack, onAddToPlaylist }) => {
+export const AlbumView: React.FC<AlbumViewProps> = ({
+  album,
+  onBack,
+  onAddToPlaylist,
+  onSelectArtist,
+}) => {
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
@@ -94,7 +100,12 @@ export const AlbumView: React.FC<AlbumViewProps> = ({ album, onBack, onAddToPlay
             {album.name}
           </h1>
           <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-spotify-gray flex-wrap justify-center sm:justify-start">
-            <span className="text-white font-bold">{artistName}</span>
+            <span
+              onClick={() => onSelectArtist?.(artistName)}
+              className="text-white font-bold hover:underline cursor-pointer"
+            >
+              {artistName}
+            </span>
             <span>•</span>
             <span>{album.release_date ? new Date(album.release_date).getFullYear() : '2026'}</span>
             <span>•</span>
