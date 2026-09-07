@@ -8,8 +8,8 @@ import {
   ListMusic,
   ArrowRight,
   Pin,
-  Music,
 } from 'lucide-react';
+import { SpotifyLogo } from './SpotifyLogo';
 import type { CustomPlaylist } from '../services/storage';
 import { getCustomPlaylists, getLikedSongs } from '../services/storage';
 
@@ -71,15 +71,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-[280px] lg:w-[310px] flex flex-col hidden md:flex shrink-0 select-none gap-2">
       {/* ── Top Panel: Logo + Home + Search ── */}
       <div className="bg-[#121212] rounded-lg p-4 space-y-4 shadow-sm">
-        {/* Spotify Logo Header */}
+        {/* Official Spotify Logo */}
         <div
           onClick={() => setCurrentView('home')}
-          className="flex items-center gap-2 px-1 cursor-pointer text-white hover:text-white"
+          className="px-1 cursor-pointer group"
+          title="Spotify Home"
         >
-          <div className="w-8 h-8 rounded-full bg-spotify-green flex items-center justify-center text-black font-black">
-            <Music size={18} fill="currentColor" />
-          </div>
-          <span className="font-extrabold text-lg tracking-tight">Spotify</span>
+          <SpotifyLogo
+            iconClassName="w-7 h-7 group-hover:scale-105 transition-transform"
+            textClassName="font-bold text-xl tracking-tight text-white"
+          />
         </div>
 
         <nav className="space-y-3 pt-1">

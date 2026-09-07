@@ -1,0 +1,35 @@
+import React from 'react';
+
+interface SpotifyLogoProps {
+  className?: string;
+  iconClassName?: string;
+  textClassName?: string;
+  showText?: boolean;
+}
+
+export const SpotifyLogo: React.FC<SpotifyLogoProps> = ({
+  className = '',
+  iconClassName = 'w-8 h-8',
+  textClassName = 'font-bold text-xl tracking-tight text-white',
+  showText = true,
+}) => {
+  return (
+    <div className={`flex items-center gap-2 select-none ${className}`}>
+      <svg
+        viewBox="0 0 168 168"
+        className={`shrink-0 ${iconClassName}`}
+        aria-label="Spotify Logo"
+      >
+        <path
+          fill="#1ED760"
+          d="M83.996.277C37.747.277.253 37.77.253 84.019c0 46.251 37.494 83.741 83.743 83.741 46.254 0 83.744-37.49 83.744-83.741 0-46.246-37.49-83.742-83.744-83.742zm38.404 120.78a5.217 5.217 0 0 1-7.18 1.73c-19.662-12.01-44.414-14.73-73.564-8.07a5.222 5.222 0 0 1-6.24-3.93 5.22 5.22 0 0 1 3.93-6.24c31.9-7.29 59.25-4.23 81.33 9.33a5.22 5.22 0 0 1 1.724 7.18zm10.25-22.805c-1.89 3.075-5.91 4.045-8.98 2.155-22.51-13.83-56.82-17.84-83.45-9.76-3.45 1.05-7.06-.93-8.11-4.39-1.04-3.45.94-7.06 4.39-8.11 30.43-9.23 68.22-4.76 93.99 11.1 3.08 1.89 4.05 5.91 2.16 9.005zm.88-23.744c-26.99-16.03-71.52-17.51-97.27-9.69-4.13 1.25-8.5-1.07-9.76-5.2-1.25-4.14 1.07-8.52 5.2-9.76 29.58-8.98 78.89-7.28 110.02 11.2 3.72 2.21 4.93 7.03 2.72 10.74-2.2 3.73-7.01 4.94-10.91 2.71z"
+        />
+      </svg>
+      {showText && (
+        <span className={textClassName}>
+          Spotify
+        </span>
+      )}
+    </div>
+  );
+};

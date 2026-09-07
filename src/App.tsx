@@ -15,6 +15,7 @@ import { AddToPlaylistModal } from './components/AddToPlaylistModal';
 import { NowPlayingRightSidebar } from './components/NowPlayingRightSidebar';
 import { QueueDrawer } from './components/QueueDrawer';
 import { LyricsModal } from './components/LyricsModal';
+import { SpotifyLogo } from './components/SpotifyLogo';
 
 function SpotifyApp() {
   const [currentView, setCurrentView] = useState<'home' | 'search' | 'library'>('home');
@@ -99,8 +100,19 @@ function SpotifyApp() {
         <main className="flex-1 bg-[#121212] rounded-lg flex flex-col overflow-hidden relative shadow-sm">
           {/* Top Bar Header */}
           <header className="h-16 px-6 flex items-center justify-between z-10 shrink-0 bg-transparent">
-            {/* History navigation */}
+            {/* History navigation & Mobile Logo */}
             <div className="flex items-center gap-2">
+              <div
+                onClick={() => handleViewChange('home')}
+                className="md:hidden flex items-center cursor-pointer mr-1"
+                title="Spotify Home"
+              >
+                <SpotifyLogo
+                  iconClassName="w-7 h-7"
+                  textClassName="font-bold text-lg text-white"
+                  showText={false}
+                />
+              </div>
               <button
                 onClick={handleBackNavigation}
                 className="w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white transition-colors"
