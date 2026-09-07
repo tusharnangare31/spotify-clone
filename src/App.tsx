@@ -12,10 +12,13 @@ import { LikedSongsView } from './components/LikedSongsView';
 import { PlaylistView } from './components/PlaylistView';
 import { PlaylistModal } from './components/PlaylistModal';
 import { AddToPlaylistModal } from './components/AddToPlaylistModal';
+import { NowPlayingRightSidebar } from './components/NowPlayingRightSidebar';
+import { QueueDrawer } from './components/QueueDrawer';
+import { LyricsModal } from './components/LyricsModal';
 
 function SpotifyApp() {
   const [currentView, setCurrentView] = useState<'home' | 'search' | 'library'>('home');
-  const [searchQuery, setSearchQuery] = useState('');
+  const searchQuery = '';
   const [selectedAlbum, setSelectedAlbum] = useState<SpotifyAlbum | null>(null);
   const [selectedArtist, setSelectedArtist] = useState<{ name: string; id?: string } | null>(null);
 
@@ -25,17 +28,16 @@ function SpotifyApp() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [trackToAdd, setTrackToAdd] = useState<SpotifyTrack | null>(null);
 
+  // Right Panels & Overlays state
+  const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(true);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const [isLyricsOpen, setIsLyricsOpen] = useState(false);
+
   const resetOverlays = () => {
     setSelectedAlbum(null);
     setSelectedArtist(null);
     setIsLikedOpen(false);
     setActivePlaylistId(null);
-  };
-
-  const handleSelectSearchQuery = (q: string) => {
-    resetOverlays();
-    setSearchQuery(q);
-    setCurrentView('search');
   };
 
   const handleViewChange = (view: 'home' | 'search' | 'library') => {
@@ -77,23 +79,24 @@ function SpotifyApp() {
   const hasOverlayView = Boolean(selectedArtist || selectedAlbum || isLikedOpen || activePlaylistId);
 
   return (
-    <div className="flex flex-col h-screen bg-spotify-darker text-white overflow-hidden select-none font-sans">
-      {/* ── Top Workspace: Sidebar + Main Area ── */}
+    <div className="flex flex-col h-screen bg-[#000000] text-white overflow-hidden select-none font-sans">
+      {/* ── Top Workspace: Sidebar + Main Area + Right Sidebar ── */}
       <div className="flex flex-1 overflow-hidden p-2 gap-2">
-        {/* Sidebar */}
+        {/* 1. Left Sidebar */}
         <Sidebar
           currentView={currentView}
           setCurrentView={handleViewChange}
           onOpenLikedSongs={handleOpenLiked}
           onOpenCustomPlaylist={handleOpenPlaylist}
+          onOpenArtist={handleOpenArtist}
           onCreatePlaylist={() => setIsCreateModalOpen(true)}
-          onSelectSearchQuery={handleSelectSearchQuery}
           isLikedActive={isLikedOpen}
           activePlaylistId={activePlaylistId}
+          activeArtistName={selectedArtist?.name}
         />
 
-        {/* Main Content Area */}
-        <main className="flex-1 bg-spotify-dark rounded-lg flex flex-col overflow-hidden relative">
+        {/* 2. Main Content Area */}
+        <main className="flex-1 bg-[#121212] rounded-lg flex flex-col overflow-hidden relative shadow-sm">
           {/* Top Bar Header */}
           <header className="h-16 px-6 flex items-center justify-between z-10 shrink-0 bg-transparent">
             {/* History navigation */}
@@ -117,10 +120,10 @@ function SpotifyApp() {
             {/* Quick Artist Showcase: Pritam */}
             <button
               onClick={() => handleOpenArtist('Pritam', '1wRPtKGflJrBx9BmLsSwlU')}
-              className="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 text-xs font-bold text-white px-3 py-1.5 rounded-full transition-all border border-white/10"
+              className="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 text-xs font-bold text-white px-3.5 py-1.5 rounded-full transition-all border border-white/10"
               title="Open Pritam Official Page"
             >
-              <span className="w-2 h-2 rounded-full bg-spotify-green"></span>
+              <span className="w-2 h-2 rounded-full bg-spotify-green animate-pulse"></span>
               Pritam (Official)
             </button>
 
@@ -142,7 +145,7 @@ function SpotifyApp() {
           </header>
 
           {/* Dynamic View Scrollable Container */}
-          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#1e3264]/40 via-spotify-dark/80 to-spotify-dark">
+          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#1e3264]/40 via-[#121212]/90 to-[#121212]">
             {/* 1. Artist Detail View (e.g. Pritam) */}
             {selectedArtist && (
               <ArtistView
@@ -220,12 +223,36 @@ function SpotifyApp() {
             </div>
           </div>
         </main>
+
+        {/* 3. Right Panel: Queue Drawer or Now Playing View */}
+        {isQueueOpen ? (
+          <QueueDrawer isOpen={isQueueOpen} onClose={() => setIsQueueOpen(false)} />
+        ) : isNowPlayingOpen ? (
+          <NowPlayingRightSidebar
+            isOpen={isNowPlayingOpen}
+            onClose={() => setIsNowPlayingOpen(false)}
+            onSelectArtist={(name) => handleOpenArtist(name)}
+          />
+        ) : null}
       </div>
 
       {/* ── Persistent Playback Bar ── */}
-      <PlayerBar />
+      <PlayerBar
+        isNowPlayingOpen={isNowPlayingOpen && !isQueueOpen}
+        onToggleNowPlaying={() => {
+          setIsQueueOpen(false);
+          setIsNowPlayingOpen((v) => !v);
+        }}
+        onSelectArtist={(name) => handleOpenArtist(name)}
+        onToggleLyrics={() => setIsLyricsOpen((v) => !v)}
+        isLyricsOpen={isLyricsOpen}
+        onToggleQueue={() => {
+          setIsQueueOpen((v) => !v);
+        }}
+        isQueueOpen={isQueueOpen}
+      />
 
-      {/* ── Modals ── */}
+      {/* ── Modals & Full Screen Overlays ── */}
       <PlaylistModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -240,6 +267,8 @@ function SpotifyApp() {
           setIsCreateModalOpen(true);
         }}
       />
+
+      <LyricsModal isOpen={isLyricsOpen} onClose={() => setIsLyricsOpen(false)} />
     </div>
   );
 }
