@@ -16,6 +16,8 @@ import { NowPlayingRightSidebar } from './components/NowPlayingRightSidebar';
 import { QueueDrawer } from './components/QueueDrawer';
 import { LyricsModal } from './components/LyricsModal';
 import { SpotifyLogo } from './components/SpotifyLogo';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileLibraryView } from './components/MobileLibraryView';
 
 function SpotifyApp() {
   const [currentView, setCurrentView] = useState<'home' | 'search' | 'library'>('home');
@@ -82,7 +84,7 @@ function SpotifyApp() {
   return (
     <div className="flex flex-col h-screen bg-[#000000] text-white overflow-hidden select-none font-sans">
       {/* ── Top Workspace: Sidebar + Main Area + Right Sidebar ── */}
-      <div className="flex flex-1 overflow-hidden p-2 gap-2">
+      <div className="flex flex-1 overflow-hidden p-0 md:p-2 gap-2">
         {/* 1. Left Sidebar */}
         <Sidebar
           currentView={currentView}
@@ -97,7 +99,7 @@ function SpotifyApp() {
         />
 
         {/* 2. Main Content Area */}
-        <main className="flex-1 bg-[#121212] rounded-lg flex flex-col overflow-hidden relative shadow-sm">
+        <main className="flex-1 bg-[#121212] rounded-none md:rounded-lg flex flex-col overflow-hidden relative shadow-sm">
           {/* Top Bar Header */}
           <header className="h-16 px-6 flex items-center justify-between z-10 shrink-0 bg-transparent">
             {/* History navigation & Mobile Logo */}
@@ -147,7 +149,7 @@ function SpotifyApp() {
           </header>
 
           {/* Dynamic View Scrollable Container */}
-          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#1e3264]/40 via-[#121212]/90 to-[#121212]">
+          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#1e3264]/40 via-[#121212]/90 to-[#121212] pb-36 md:pb-6">
             {/* 1. Artist Detail View (e.g. Pritam) */}
             {selectedArtist && (
               <ArtistView
@@ -201,26 +203,12 @@ function SpotifyApp() {
               </div>
 
               <div className={currentView === 'library' ? 'block' : 'hidden'}>
-                <div className="p-8 text-center text-spotify-gray space-y-4">
-                  <h2 className="text-2xl font-bold text-white">Your Library</h2>
-                  <p className="text-sm max-w-sm mx-auto">
-                    Create playlists and save your favorite music in one place!
-                  </p>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      onClick={() => setIsCreateModalOpen(true)}
-                      className="bg-spotify-green text-black font-bold text-sm px-6 py-2.5 rounded-full hover:scale-105 transition-transform"
-                    >
-                      Create Playlist
-                    </button>
-                    <button
-                      onClick={handleOpenLiked}
-                      className="bg-white/10 hover:bg-white/20 text-white font-bold text-sm px-6 py-2.5 rounded-full transition-colors"
-                    >
-                      Liked Songs
-                    </button>
-                  </div>
-                </div>
+                <MobileLibraryView
+                  onOpenLikedSongs={handleOpenLiked}
+                  onOpenCustomPlaylist={handleOpenPlaylist}
+                  onOpenArtist={handleOpenArtist}
+                  onCreatePlaylist={() => setIsCreateModalOpen(true)}
+                />
               </div>
             </div>
           </div>
@@ -271,6 +259,13 @@ function SpotifyApp() {
       />
 
       <LyricsModal isOpen={isLyricsOpen} onClose={() => setIsLyricsOpen(false)} />
+
+      {/* ── Mobile Bottom Navigation Dock ── */}
+      <MobileBottomNav
+        currentView={currentView}
+        onSelectView={handleViewChange}
+        hasOverlayView={hasOverlayView}
+      />
     </div>
   );
 }

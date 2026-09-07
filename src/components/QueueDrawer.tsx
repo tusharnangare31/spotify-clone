@@ -16,7 +16,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ isOpen, onClose }) => 
     currentIndex !== -1 ? queue.slice(currentIndex + 1) : queue;
 
   return (
-    <aside className="w-[300px] lg:w-[340px] bg-[#121212] rounded-lg p-4 flex flex-col overflow-y-auto hidden xl:flex shrink-0 select-none shadow-sm space-y-4">
+    <aside className="fixed inset-0 z-50 xl:relative xl:inset-auto xl:z-0 w-full xl:w-[320px] bg-[#121212] xl:rounded-lg p-4 flex flex-col overflow-y-auto shrink-0 select-none shadow-xl xl:shadow-sm space-y-4">
       <div className="flex items-center justify-between pb-2 border-b border-white/5">
         <h3 className="font-bold text-base text-white">Queue</h3>
         <button

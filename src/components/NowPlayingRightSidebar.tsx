@@ -37,7 +37,7 @@ export const NowPlayingRightSidebar: React.FC<NowPlayingRightSidebarProps> = ({
       : null;
 
   return (
-    <aside className="w-[300px] lg:w-[340px] bg-[#121212] rounded-lg p-4 flex flex-col overflow-y-auto hidden xl:flex shrink-0 select-none shadow-sm space-y-4">
+    <aside className="fixed inset-0 z-50 xl:relative xl:inset-auto xl:z-0 w-full xl:w-[320px] bg-[#121212] xl:rounded-lg p-4 flex flex-col overflow-y-auto shrink-0 select-none shadow-xl xl:shadow-sm space-y-4">
       {/* ── Top Header ── */}
       <div className="flex items-center justify-between text-white pb-2 border-b border-white/5">
         <h3 className="font-bold text-base truncate pr-2 hover:underline cursor-pointer">

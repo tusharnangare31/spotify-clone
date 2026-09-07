@@ -200,7 +200,7 @@ export const ArtistView: React.FC<ArtistViewProps> = ({
               <div
                 key={track.id || idx}
                 onClick={() => playTrack(track, topTracks)}
-                className={`grid grid-cols-[36px_minmax(0,1fr)_120px_48px] items-center px-4 py-2.5 rounded-md hover:bg-white/10 transition-colors cursor-pointer group ${
+                className={`grid grid-cols-[28px_minmax(0,1fr)_auto] sm:grid-cols-[36px_minmax(0,1fr)_120px_48px] items-center px-2 sm:px-4 py-2.5 rounded-md hover:bg-white/10 transition-colors cursor-pointer group ${
                   isCurrent ? 'bg-white/15' : ''
                 }`}
               >
