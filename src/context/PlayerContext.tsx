@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Info } from 'lucide-react';
 import type { SpotifyTrack } from '../types/spotify';
 import { resolveYouTubeVideoId } from '../services/youtubeResolver';
 
@@ -16,6 +17,7 @@ interface PlayerContextType {
   prevTrack: () => void;
   seekTo: (seconds: number) => void;
   setVolume: (volume: number) => void;
+  showToast: (msg: string) => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -35,6 +37,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(80);
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((curr) => (curr === msg ? null : curr));
+    }, 4000);
+  };
 
   const playerRef = useRef<any>(null);
   const isReadyRef = useRef(false);
@@ -129,7 +139,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const videoId = await resolveYouTubeVideoId(track.name, artistName);
 
       if (!videoId) {
-        alert(`Could not find audio stream for "${track.name}".`);
+        showToast(`Could not find audio stream for "${track.name}".`);
         setIsLoading(false);
         return;
       }
@@ -207,9 +217,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prevTrack,
         seekTo,
         setVolume,
+        showToast,
       }}
     >
       {children}
+      {toastMessage && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1ed760] text-black font-semibold text-xs px-4 py-2.5 rounded-full shadow-2xl z-50 flex items-center gap-2 pointer-events-none transition-all">
+          <Info className="w-4 h-4 shrink-0 text-black" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
       {/* Hidden YouTube Iframe container */}
       <div className="absolute -left-[9999px] -top-[9999px] pointer-events-none opacity-0">
         <div id="hidden-yt-player"></div>
