@@ -37,25 +37,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
 
   const playerRef = useRef<any>(null);
-  const timerRef = useRef<any>(null);
   const isReadyRef = useRef(false);
 
-  // Initialize YouTube Iframe API
+  // 1. Initialize YouTube Iframe API once on mount
   useEffect(() => {
-    if (window.YT && window.YT.Player) {
-      initPlayer();
-      return;
-    }
-
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    const firstScript = document.getElementsByTagName('script')[0];
-    firstScript.parentNode?.insertBefore(tag, firstScript);
-
-    window.onYouTubeIframeAPIReady = () => {
-      initPlayer();
-    };
-
     function initPlayer() {
       if (playerRef.current) return;
       playerRef.current = new window.YT.Player('hidden-yt-player', {
@@ -79,6 +64,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (e.data === 1) {
               setIsPlaying(true);
               setIsLoading(false);
+              const ytDur = e.target.getDuration();
+              if (ytDur > 0) setDuration(ytDur);
             } else if (e.data === 2) {
               setIsPlaying(false);
             } else if (e.data === 0) {
@@ -90,28 +77,48 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     }
 
-    // Polling progress timer
-    timerRef.current = setInterval(() => {
-      if (playerRef.current && isPlaying) {
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScript = document.getElementsByTagName('script')[0];
+      firstScript.parentNode?.insertBefore(tag, firstScript);
+
+      window.onYouTubeIframeAPIReady = () => {
+        initPlayer();
+      };
+    }
+  }, []);
+
+  // 2. Dedicated smooth progress tracking timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
         try {
-          const cur = playerRef.current.getCurrentTime() || 0;
-          const dur = playerRef.current.getDuration() || 0;
-          setProgress(cur);
-          if (dur > 0) setDuration(dur);
+          const cur = playerRef.current.getCurrentTime();
+          const dur = playerRef.current.getDuration();
+          if (typeof cur === 'number' && !isNaN(cur)) {
+            setProgress(cur);
+          }
+          if (typeof dur === 'number' && dur > 0 && !isNaN(dur)) {
+            setDuration(dur);
+          }
         } catch {}
       }
-    }, 500);
+    }, 250);
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isPlaying]);
+    return () => clearInterval(timer);
+  }, []);
 
   const playTrack = async (track: SpotifyTrack, newQueue?: SpotifyTrack[]) => {
     setCurrentTrack(track);
     setIsLoading(true);
     setIsPlaying(false);
     setProgress(0);
+    if (track.duration_ms) {
+      setDuration(Math.floor(track.duration_ms / 1000));
+    }
 
     if (newQueue) {
       setQueue(newQueue);

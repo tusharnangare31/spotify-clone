@@ -45,11 +45,12 @@ export const PlayerBar: React.FC = () => {
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!duration) return;
+    if (!duration || duration <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const width = rect.width;
-    const newTime = (clickX / width) * duration;
+    const ratio = Math.max(0, Math.min(1, clickX / width));
+    const newTime = ratio * duration;
     seekTo(newTime);
   };
 
@@ -143,13 +144,15 @@ export const PlayerBar: React.FC = () => {
           </span>
           <div
             onClick={handleSeek}
-            className="h-1 bg-spotify-light rounded-full flex-1 relative cursor-pointer group py-1.5 -my-1.5"
+            className="h-1 bg-spotify-light rounded-full flex-1 relative cursor-pointer group py-2 -my-2 flex items-center"
           >
-            <div className="h-1 bg-[#4d4d4d] rounded-full w-full relative overflow-hidden">
+            <div className="h-1 bg-[#4d4d4d] rounded-full w-full relative">
               <div
-                className="h-full bg-white group-hover:bg-spotify-green transition-colors rounded-full"
+                className="h-full bg-white group-hover:bg-spotify-green transition-colors rounded-full relative"
                 style={{ width: `${progressPercent}%` }}
-              />
+              >
+                <div className="hidden group-hover:block w-3 h-3 bg-white rounded-full absolute -right-1.5 -top-1 shadow-md" />
+              </div>
             </div>
           </div>
           <span className="text-[11px] text-spotify-gray w-8 font-mono">
