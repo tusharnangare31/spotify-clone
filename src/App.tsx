@@ -117,16 +117,6 @@ function SpotifyApp() {
               </button>
             </div>
 
-            {/* Quick Artist Showcase: Pritam */}
-            <button
-              onClick={() => handleOpenArtist('Pritam', '1wRPtKGflJrBx9BmLsSwlU')}
-              className="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 text-xs font-bold text-white px-3.5 py-1.5 rounded-full transition-all border border-white/10"
-              title="Open Pritam Official Page"
-            >
-              <span className="w-2 h-2 rounded-full bg-spotify-green animate-pulse"></span>
-              Pritam (Official)
-            </button>
-
             {/* User Profile Badge */}
             <div className="flex items-center gap-3">
               <button

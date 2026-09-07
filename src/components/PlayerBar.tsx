@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Play,
   Pause,
@@ -65,6 +65,15 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   const [isRepeat, setIsRepeat] = useState(false);
   const [prevVolume, setPrevVolume] = useState(80);
 
+  // Dragging states for smooth scrubbing
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubValue, setScrubValue] = useState(0);
+
+  const [isVolumeDragging, setIsVolumeDragging] = useState(false);
+
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const volumeBarRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const updateLiked = () => {
       setIsLiked(isTrackLiked(currentTrack?.id));
@@ -76,21 +85,88 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     };
   }, [currentTrack]);
 
+  // Timeline scrub dragging listener
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isScrubbing || !progressBarRef.current || !duration) return;
+      const rect = progressBarRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+      setScrubValue(ratio * duration);
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!isScrubbing || !progressBarRef.current || !duration) return;
+      const rect = progressBarRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+      const targetTime = ratio * duration;
+      seekTo(targetTime);
+      setIsScrubbing(false);
+    };
+
+    if (isScrubbing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isScrubbing, duration, seekTo]);
+
+  // Volume dragging listener
+  useEffect(() => {
+    const handleVolumeMove = (e: MouseEvent) => {
+      if (!isVolumeDragging || !volumeBarRef.current) return;
+      const rect = volumeBarRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+      setVolume(Math.round(ratio * 100));
+    };
+
+    const handleVolumeUp = () => {
+      if (isVolumeDragging) setIsVolumeDragging(false);
+    };
+
+    if (isVolumeDragging) {
+      window.addEventListener('mousemove', handleVolumeMove);
+      window.addEventListener('mouseup', handleVolumeUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleVolumeMove);
+      window.removeEventListener('mouseup', handleVolumeUp);
+    };
+  }, [isVolumeDragging, setVolume]);
+
   const albumImage =
     currentTrack?.album?.images?.[0]?.url ||
     'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80';
 
   const artistName = currentTrack?.artists?.[0]?.name || 'Artist';
-  const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!duration || duration <= 0) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+  const displayTime = isScrubbing ? scrubValue : progress;
+  const progressPercent = duration > 0 ? (displayTime / duration) * 100 : 0;
+
+  const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!duration || duration <= 0 || !progressBarRef.current) return;
+    const rect = progressBarRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    const width = rect.width;
-    const ratio = Math.max(0, Math.min(1, clickX / width));
-    const newTime = ratio * duration;
-    seekTo(newTime);
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    const target = ratio * duration;
+    setScrubValue(target);
+    setIsScrubbing(true);
+  };
+
+  const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!volumeBarRef.current) return;
+    const rect = volumeBarRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    setVolume(Math.round(ratio * 100));
+    setIsVolumeDragging(true);
   };
 
   const toggleMute = () => {
@@ -111,7 +187,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   };
 
   return (
-    <footer className="h-[76px] bg-[#000000] border-t border-[#1a1a1a] px-4 flex items-center justify-between z-40 select-none shrink-0">
+    <footer className="h-[76px] bg-[#000000] border-t border-[#181818] px-4 flex items-center justify-between z-40 select-none shrink-0">
       {/* ── Left: Current Track Info (30% width) ── */}
       <div className="flex items-center gap-3.5 w-[30%] min-w-[200px]">
         <div className="relative group shrink-0">
@@ -125,7 +201,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         </div>
 
         <div className="min-w-0 pr-2">
-          <h4 className="text-sm font-bold truncate text-white hover:underline cursor-pointer">
+          <h4 className="text-sm font-semibold truncate text-white hover:underline cursor-pointer">
             {currentTrack?.name || 'No track playing'}
           </h4>
           <p
@@ -155,7 +231,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
       </div>
 
       {/* ── Center: Playback Controls (40% width) ── */}
-      <div className="flex flex-col items-center max-w-[520px] w-[40%]">
+      <div className="flex flex-col items-center max-w-[500px] w-[40%]">
         <div className="flex items-center gap-4 mb-1">
           {/* Shuffle */}
           <button
@@ -222,25 +298,35 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           </button>
         </div>
 
-        {/* Progress scrub bar */}
-        <div className="w-full flex items-center gap-2">
-          <span className="text-[11px] text-[#b3b3b3] w-8 text-right font-mono">
-            {formatTime(progress)}
+        {/* ── Pixel-Perfect Spotify Progress Bar ── */}
+        <div className="w-full flex items-center gap-2 select-none">
+          <span className="text-[11px] text-[#a7a7a7] w-9 text-right font-mono tabular-nums">
+            {formatTime(displayTime)}
           </span>
+
+          {/* Slider Container with hit area */}
           <div
-            onClick={handleSeek}
-            className="h-1 bg-[#4d4d4d] rounded-full flex-1 relative cursor-pointer group py-2 -my-2 flex items-center"
+            ref={progressBarRef}
+            onMouseDown={handleTimelineMouseDown}
+            className="h-3 w-full flex items-center cursor-pointer group relative py-1"
           >
-            <div className="h-1 bg-[#4d4d4d] rounded-full w-full relative">
+            {/* Background 4px track */}
+            <div className="h-1 w-full bg-[#4d4d4d] rounded-full overflow-hidden relative">
+              {/* Progress fill (turns bright Spotify green on hover) */}
               <div
-                className="h-full bg-white group-hover:bg-spotify-green transition-colors rounded-full relative"
+                className="h-full bg-white group-hover:bg-spotify-green transition-colors rounded-full"
                 style={{ width: `${progressPercent}%` }}
-              >
-                <div className="hidden group-hover:block w-3 h-3 bg-white rounded-full absolute -right-1.5 -top-1 shadow-md" />
-              </div>
+              />
             </div>
+
+            {/* Scrubber thumb knob (centered vertically on the 4px track, appears on hover) */}
+            <div
+              className="hidden group-hover:block absolute w-3 h-3 bg-white rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.6)] top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
+              style={{ left: `${progressPercent}%` }}
+            />
           </div>
-          <span className="text-[11px] text-[#b3b3b3] w-8 font-mono">
+
+          <span className="text-[11px] text-[#a7a7a7] w-9 text-left font-mono tabular-nums">
             {formatTime(duration)}
           </span>
         </div>
@@ -286,9 +372,9 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           <Laptop2 size={18} />
         </button>
 
-        {/* Volume */}
+        {/* ── Pixel-Perfect Spotify Volume Bar ── */}
         <div className="flex items-center gap-2 group">
-          <button onClick={toggleMute} className="hover:text-white transition-colors">
+          <button onClick={toggleMute} className="hover:text-white transition-colors cursor-pointer">
             {volume === 0 ? (
               <VolumeX size={18} />
             ) : volume < 50 ? (
@@ -298,14 +384,23 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             )}
           </button>
 
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={volume}
-            onChange={(e) => setVolume(Number(e.target.value))}
-            className="w-20 h-1 bg-[#4d4d4d] rounded-full accent-white hover:accent-spotify-green cursor-pointer"
-          />
+          {/* Volume Slider */}
+          <div
+            ref={volumeBarRef}
+            onMouseDown={handleVolumeMouseDown}
+            className="h-3 w-24 flex items-center cursor-pointer group/vol relative select-none"
+          >
+            <div className="h-1 w-full bg-[#4d4d4d] rounded-full overflow-hidden relative">
+              <div
+                className="h-full bg-white group-hover/vol:bg-spotify-green transition-colors rounded-full"
+                style={{ width: `${volume}%` }}
+              />
+            </div>
+            <div
+              className="hidden group-hover/vol:block absolute w-3 h-3 bg-white rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.6)] top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
+              style={{ left: `${volume}%` }}
+            />
+          </div>
         </div>
 
         {/* Fullscreen */}

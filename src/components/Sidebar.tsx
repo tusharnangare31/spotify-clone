@@ -56,11 +56,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const favoriteArtists = [
     {
-      id: '1wRPtKGflJrBx9BmLsSwlU',
-      name: 'Pritam',
-      image: 'https://i.scdn.co/image/ab6761610000e5ebcb6926f44f620555ba444fca',
-    },
-    {
       id: '4YRxDV8wJFPHPTeXepOstw',
       name: 'Arijit Singh',
       image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=200',
