@@ -129,3 +129,36 @@ export function deleteCustomPlaylist(playlistId: string): boolean {
   window.dispatchEvent(new Event('spotify_storage_change'));
   return true;
 }
+
+const RECENTLY_PLAYED_KEY = 'spotify_recently_played';
+
+/**
+ * Get recently played tracks from localStorage
+ */
+export function getRecentlyPlayed(): SpotifyTrack[] {
+  try {
+    const raw = localStorage.getItem(RECENTLY_PLAYED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Add a track to recently played history
+ */
+export function addRecentlyPlayed(track: SpotifyTrack): void {
+  try {
+    let recent = getRecentlyPlayed();
+    // Remove if already present so it moves to front
+    recent = recent.filter((t) => t.id !== track.id);
+    recent.unshift(track);
+    // Cap at 20 tracks
+    if (recent.length > 20) {
+      recent = recent.slice(0, 20);
+    }
+    localStorage.setItem(RECENTLY_PLAYED_KEY, JSON.stringify(recent));
+    window.dispatchEvent(new Event('spotify_storage_change'));
+  } catch {}
+}
+

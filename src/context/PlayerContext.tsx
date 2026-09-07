@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Info } from 'lucide-react';
 import type { SpotifyTrack } from '../types/spotify';
 import { resolveYouTubeVideoId } from '../services/youtubeResolver';
+import { addRecentlyPlayed } from '../services/storage';
 
 interface PlayerContextType {
   currentTrack: SpotifyTrack | null;
@@ -123,6 +124,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const playTrack = async (track: SpotifyTrack, newQueue?: SpotifyTrack[]) => {
     setCurrentTrack(track);
+    addRecentlyPlayed(track);
     setIsLoading(true);
     setIsPlaying(false);
     setProgress(0);

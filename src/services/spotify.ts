@@ -120,6 +120,54 @@ export async function getNewReleases(limit = 12): Promise<SpotifyAlbum[]> {
   return fallback.albums;
 }
 
+export interface HomeFeedData {
+  trendingTracks: SpotifyTrack[];
+  trendingAlbums: SpotifyAlbum[];
+  bollywoodTracks: SpotifyTrack[];
+  bollywoodAlbums: SpotifyAlbum[];
+  punjabiTracks: SpotifyTrack[];
+  punjabiAlbums: SpotifyAlbum[];
+  chillTracks: SpotifyTrack[];
+  chillAlbums: SpotifyAlbum[];
+}
+
+/**
+ * Fetch dynamic multi-category feeds for the Home page
+ */
+export async function getHomeFeedData(): Promise<HomeFeedData> {
+  try {
+    const [trending, bolly, punj, chill] = await Promise.all([
+      itunesSearch('Top Hits 2026', 12),
+      itunesSearch('Bollywood Romance Hits 2026', 10),
+      itunesSearch('Punjabi Party Hits 2026', 10),
+      itunesSearch('Chill Lofi Study Beats', 10),
+    ]);
+
+    return {
+      trendingTracks: trending.tracks,
+      trendingAlbums: trending.albums,
+      bollywoodTracks: bolly.tracks,
+      bollywoodAlbums: bolly.albums,
+      punjabiTracks: punj.tracks,
+      punjabiAlbums: punj.albums,
+      chillTracks: chill.tracks,
+      chillAlbums: chill.albums,
+    };
+  } catch (err) {
+    console.error('Home feed fetch error:', err);
+    return {
+      trendingTracks: [],
+      trendingAlbums: [],
+      bollywoodTracks: [],
+      bollywoodAlbums: [],
+      punjabiTracks: [],
+      punjabiAlbums: [],
+      chillTracks: [],
+      chillAlbums: [],
+    };
+  }
+}
+
 /**
  * Fetch Featured Playlists
  */
