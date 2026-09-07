@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import { isTrackLiked, toggleLikeTrack } from '../services/storage';
+import { MobileFullscreenPlayer } from './MobileFullscreenPlayer';
 
 interface PlayerBarProps {
   isNowPlayingOpen?: boolean;
@@ -62,6 +63,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 
   const [isLiked, setIsLiked] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
+  const [isMobileFullscreenOpen, setIsMobileFullscreenOpen] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
   const [prevVolume, setPrevVolume] = useState(80);
 
@@ -187,231 +189,278 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   };
 
   return (
-    <footer className="h-[76px] bg-[#000000] border-t border-[#181818] px-4 flex items-center justify-between z-40 select-none shrink-0">
-      {/* ── Left: Current Track Info (30% width) ── */}
-      <div className="flex items-center gap-3.5 w-[30%] min-w-[200px]">
-        <div className="relative group shrink-0">
-          <img
-            src={albumImage}
-            alt={currentTrack?.name || 'Song'}
-            className={`w-14 h-14 rounded object-cover shadow-md bg-[#282828] ${
-              isLoading ? 'opacity-70 animate-pulse' : ''
-            }`}
-          />
-        </div>
-
-        <div className="min-w-0 pr-2">
-          <h4 className="text-sm font-semibold truncate text-white hover:underline cursor-pointer">
-            {currentTrack?.name || 'No track playing'}
-          </h4>
-          <p
-            onClick={() => currentTrack && onSelectArtist?.(artistName)}
-            className="text-xs text-[#b3b3b3] truncate hover:text-white hover:underline cursor-pointer"
-          >
-            {currentTrack?.artists?.map((a) => a.name).join(', ') || 'Select music to play'}
-          </p>
-        </div>
-
-        {currentTrack && (
-          <button
-            onClick={() => {
-              if (currentTrack) {
-                const status = toggleLikeTrack(currentTrack);
-                setIsLiked(status);
-              }
-            }}
-            className={`p-1.5 transition-all ${
-              isLiked ? 'text-spotify-green' : 'text-[#b3b3b3] hover:text-white'
-            }`}
-            title={isLiked ? 'Remove from Your Library' : 'Save to Your Library'}
-          >
-            <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
-          </button>
-        )}
-      </div>
-
-      {/* ── Center: Playback Controls (40% width) ── */}
-      <div className="flex flex-col items-center max-w-[500px] w-[40%]">
-        <div className="flex items-center gap-4 mb-1">
-          {/* Shuffle */}
-          <button
-            onClick={() => setIsShuffle((v) => !v)}
-            className={`relative p-1 transition-colors cursor-pointer ${
-              isShuffle ? 'text-spotify-green' : 'text-[#b3b3b3] hover:text-white'
-            }`}
-            title="Enable shuffle"
-          >
-            <Shuffle size={16} />
-            {isShuffle && (
-              <span className="w-1 h-1 bg-spotify-green rounded-full absolute bottom-0 left-1/2 -translate-x-1/2" />
-            )}
-          </button>
-
-          {/* Previous */}
-          <button
-            onClick={prevTrack}
-            disabled={!currentTrack}
-            className="text-[#b3b3b3] hover:text-white transition-colors disabled:opacity-40 cursor-pointer p-1"
-            title="Previous"
-          >
-            <SkipBack size={20} fill="currentColor" />
-          </button>
-
-          {/* Big Play / Pause Button */}
-          <button
-            onClick={togglePlay}
-            disabled={!currentTrack || isLoading}
-            className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all shadow-md disabled:opacity-50 cursor-pointer"
-            title={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isLoading ? (
-              <Loader2 size={16} className="animate-spin text-black" />
-            ) : isPlaying ? (
-              <Pause size={16} fill="currentColor" />
-            ) : (
-              <Play size={16} fill="currentColor" className="ml-0.5" />
-            )}
-          </button>
-
-          {/* Next */}
-          <button
-            onClick={nextTrack}
-            disabled={!currentTrack}
-            className="text-[#b3b3b3] hover:text-white transition-colors disabled:opacity-40 cursor-pointer p-1"
-            title="Next"
-          >
-            <SkipForward size={20} fill="currentColor" />
-          </button>
-
-          {/* Repeat */}
-          <button
-            onClick={() => setIsRepeat((v) => !v)}
-            className={`relative p-1 transition-colors cursor-pointer ${
-              isRepeat ? 'text-spotify-green' : 'text-[#b3b3b3] hover:text-white'
-            }`}
-            title="Enable repeat"
-          >
-            <Repeat size={16} />
-            {isRepeat && (
-              <span className="w-1 h-1 bg-spotify-green rounded-full absolute bottom-0 left-1/2 -translate-x-1/2" />
-            )}
-          </button>
-        </div>
-
-        {/* ── Pixel-Perfect Spotify Progress Bar ── */}
-        <div className="w-full flex items-center gap-2 select-none">
-          <span className="text-[11px] text-[#a7a7a7] w-9 text-right font-mono tabular-nums">
-            {formatTime(displayTime)}
-          </span>
-
-          {/* Slider Container with hit area */}
-          <div
-            ref={progressBarRef}
-            onMouseDown={handleTimelineMouseDown}
-            className="h-3 w-full flex items-center cursor-pointer group relative py-1"
-          >
-            {/* Background 4px track */}
-            <div className="h-1 w-full bg-[#4d4d4d] rounded-full overflow-hidden relative">
-              {/* Progress fill (turns bright Spotify green on hover) */}
-              <div
-                className="h-full bg-white group-hover:bg-spotify-green transition-colors rounded-full"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-
-            {/* Scrubber thumb knob (centered vertically on the 4px track, appears on hover) */}
-            <div
-              className="hidden group-hover:block absolute w-3 h-3 bg-white rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.6)] top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
-              style={{ left: `${progressPercent}%` }}
+    <>
+      {/* ── Desktop Player Bar (Visible on md and larger) ── */}
+      <footer className="hidden md:flex h-[76px] bg-[#000000] border-t border-[#181818] px-4 items-center justify-between z-40 select-none shrink-0">
+        {/* ── Left: Current Track Info (30% width) ── */}
+        <div className="flex items-center gap-3.5 w-[30%] min-w-[200px]">
+          <div className="relative group shrink-0">
+            <img
+              src={albumImage}
+              alt={currentTrack?.name || 'Song'}
+              className={`w-14 h-14 rounded object-cover shadow-md bg-[#282828] ${
+                isLoading ? 'opacity-70 animate-pulse' : ''
+              }`}
             />
           </div>
 
-          <span className="text-[11px] text-[#a7a7a7] w-9 text-left font-mono tabular-nums">
-            {formatTime(duration)}
-          </span>
+          <div className="min-w-0 pr-2">
+            <h4 className="text-sm font-semibold truncate text-white hover:underline cursor-pointer">
+              {currentTrack?.name || 'No track playing'}
+            </h4>
+            <p
+              onClick={() => currentTrack && onSelectArtist?.(artistName)}
+              className="text-xs text-[#b3b3b3] truncate hover:text-white hover:underline cursor-pointer"
+            >
+              {currentTrack?.artists?.map((a) => a.name).join(', ') || 'Select music to play'}
+            </p>
+          </div>
+
+          {currentTrack && (
+            <button
+              onClick={() => {
+                if (currentTrack) {
+                  const status = toggleLikeTrack(currentTrack);
+                  setIsLiked(status);
+                }
+              }}
+              className={`p-1.5 transition-all ${
+                isLiked ? 'text-spotify-green' : 'text-[#b3b3b3] hover:text-white'
+              }`}
+              title={isLiked ? 'Remove from Your Library' : 'Save to Your Library'}
+            >
+              <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
+            </button>
+          )}
         </div>
-      </div>
 
-      {/* ── Right: Extra Controls & Volume (30% width) ── */}
-      <div className="flex items-center justify-end gap-3.5 w-[30%] min-w-[200px] text-[#b3b3b3]">
-        {/* Now Playing View */}
-        <button
-          onClick={onToggleNowPlaying}
-          className={`p-1 transition-colors cursor-pointer ${
-            isNowPlayingOpen ? 'text-spotify-green' : 'hover:text-white'
-          }`}
-          title="Now playing view"
-        >
-          <PanelRight size={18} />
-        </button>
+        {/* ── Center: Playback Controls (40% width) ── */}
+        <div className="flex flex-col items-center max-w-[500px] w-[40%]">
+          <div className="flex items-center gap-4 mb-1">
+            <button
+              onClick={() => setIsShuffle((v) => !v)}
+              className={`relative p-1 transition-colors cursor-pointer ${
+                isShuffle ? 'text-spotify-green' : 'text-[#b3b3b3] hover:text-white'
+              }`}
+              title="Enable shuffle"
+            >
+              <Shuffle size={16} />
+              {isShuffle && (
+                <span className="w-1 h-1 bg-spotify-green rounded-full absolute bottom-0 left-1/2 -translate-x-1/2" />
+              )}
+            </button>
 
-        {/* Lyrics */}
-        <button
-          onClick={onToggleLyrics}
-          className={`p-1 transition-colors cursor-pointer ${
-            isLyricsOpen ? 'text-spotify-green' : 'hover:text-white'
-          }`}
-          title="Lyrics"
-        >
-          <Mic2 size={18} />
-        </button>
+            <button
+              onClick={prevTrack}
+              disabled={!currentTrack}
+              className="text-[#b3b3b3] hover:text-white transition-colors disabled:opacity-40 cursor-pointer p-1"
+              title="Previous"
+            >
+              <SkipBack size={20} fill="currentColor" />
+            </button>
 
-        {/* Queue */}
-        <button
-          onClick={onToggleQueue}
-          className={`p-1 transition-colors cursor-pointer ${
-            isQueueOpen ? 'text-spotify-green' : 'hover:text-white'
-          }`}
-          title="Queue"
-        >
-          <ListMusic size={18} />
-        </button>
+            <button
+              onClick={togglePlay}
+              disabled={!currentTrack || isLoading}
+              className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all shadow-md disabled:opacity-50 cursor-pointer"
+              title={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isLoading ? (
+                <Loader2 size={16} className="animate-spin text-black" />
+              ) : isPlaying ? (
+                <Pause size={16} fill="currentColor" />
+              ) : (
+                <Play size={16} fill="currentColor" className="ml-0.5" />
+              )}
+            </button>
 
-        {/* Connect to device */}
-        <button className="p-1 hover:text-white transition-colors cursor-pointer" title="Connect to a device">
-          <Laptop2 size={18} />
-        </button>
+            <button
+              onClick={nextTrack}
+              disabled={!currentTrack}
+              className="text-[#b3b3b3] hover:text-white transition-colors disabled:opacity-40 cursor-pointer p-1"
+              title="Next"
+            >
+              <SkipForward size={20} fill="currentColor" />
+            </button>
 
-        {/* ── Pixel-Perfect Spotify Volume Bar ── */}
-        <div className="flex items-center gap-2 group">
-          <button onClick={toggleMute} className="hover:text-white transition-colors cursor-pointer">
-            {volume === 0 ? (
-              <VolumeX size={18} />
-            ) : volume < 50 ? (
-              <Volume1 size={18} />
-            ) : (
-              <Volume2 size={18} />
-            )}
-          </button>
+            <button
+              onClick={() => setIsRepeat((v) => !v)}
+              className={`relative p-1 transition-colors cursor-pointer ${
+                isRepeat ? 'text-spotify-green' : 'text-[#b3b3b3] hover:text-white'
+              }`}
+              title="Enable repeat"
+            >
+              <Repeat size={16} />
+              {isRepeat && (
+                <span className="w-1 h-1 bg-spotify-green rounded-full absolute bottom-0 left-1/2 -translate-x-1/2" />
+              )}
+            </button>
+          </div>
 
-          {/* Volume Slider */}
-          <div
-            ref={volumeBarRef}
-            onMouseDown={handleVolumeMouseDown}
-            className="h-3 w-24 flex items-center cursor-pointer group/vol relative select-none"
-          >
-            <div className="h-1 w-full bg-[#4d4d4d] rounded-full overflow-hidden relative">
+          <div className="w-full flex items-center gap-2 select-none">
+            <span className="text-[11px] text-[#a7a7a7] w-9 text-right font-mono tabular-nums">
+              {formatTime(displayTime)}
+            </span>
+            <div
+              ref={progressBarRef}
+              onMouseDown={handleTimelineMouseDown}
+              className="h-3 w-full flex items-center cursor-pointer group relative py-1"
+            >
+              <div className="h-1 w-full bg-[#4d4d4d] rounded-full overflow-hidden relative">
+                <div
+                  className="h-full bg-white group-hover:bg-spotify-green transition-colors rounded-full"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
               <div
-                className="h-full bg-white group-hover/vol:bg-spotify-green transition-colors rounded-full"
-                style={{ width: `${volume}%` }}
+                className="hidden group-hover:block absolute w-3 h-3 bg-white rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.6)] top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
+                style={{ left: `${progressPercent}%` }}
               />
             </div>
-            <div
-              className="hidden group-hover/vol:block absolute w-3 h-3 bg-white rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.6)] top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
-              style={{ left: `${volume}%` }}
-            />
+            <span className="text-[11px] text-[#a7a7a7] w-9 text-left font-mono tabular-nums">
+              {formatTime(duration)}
+            </span>
           </div>
         </div>
 
-        {/* Fullscreen */}
-        <button
-          onClick={toggleFullScreen}
-          className="p-1 hover:text-white transition-colors cursor-pointer"
-          title="Full screen"
-        >
-          <Maximize2 size={16} />
-        </button>
-      </div>
-    </footer>
+        {/* ── Right: Extra Controls & Volume (30% width) ── */}
+        <div className="flex items-center justify-end gap-3.5 w-[30%] min-w-[200px] text-[#b3b3b3]">
+          <button
+            onClick={onToggleNowPlaying}
+            className={`p-1 transition-colors cursor-pointer ${
+              isNowPlayingOpen ? 'text-spotify-green' : 'hover:text-white'
+            }`}
+            title="Now playing view"
+          >
+            <PanelRight size={18} />
+          </button>
+          <button
+            onClick={onToggleLyrics}
+            className={`p-1 transition-colors cursor-pointer ${
+              isLyricsOpen ? 'text-spotify-green' : 'hover:text-white'
+            }`}
+            title="Lyrics"
+          >
+            <Mic2 size={18} />
+          </button>
+          <button
+            onClick={onToggleQueue}
+            className={`p-1 transition-colors cursor-pointer ${
+              isQueueOpen ? 'text-spotify-green' : 'hover:text-white'
+            }`}
+            title="Queue"
+          >
+            <ListMusic size={18} />
+          </button>
+          <button className="p-1 hover:text-white transition-colors cursor-pointer" title="Connect to a device">
+            <Laptop2 size={18} />
+          </button>
+          <div className="flex items-center gap-2 group">
+            <button onClick={toggleMute} className="hover:text-white transition-colors cursor-pointer">
+              {volume === 0 ? (
+                <VolumeX size={18} />
+              ) : volume < 50 ? (
+                <Volume1 size={18} />
+              ) : (
+                <Volume2 size={18} />
+              )}
+            </button>
+            <div
+              ref={volumeBarRef}
+              onMouseDown={handleVolumeMouseDown}
+              className="h-3 w-24 flex items-center cursor-pointer group/vol relative select-none"
+            >
+              <div className="h-1 w-full bg-[#4d4d4d] rounded-full overflow-hidden relative">
+                <div
+                  className="h-full bg-white group-hover/vol:bg-spotify-green transition-colors rounded-full"
+                  style={{ width: `${volume}%` }}
+                />
+              </div>
+              <div
+                className="hidden group-hover/vol:block absolute w-3 h-3 bg-white rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.6)] top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
+                style={{ left: `${volume}%` }}
+              />
+            </div>
+          </div>
+          <button
+            onClick={toggleFullScreen}
+            className="p-1 hover:text-white transition-colors cursor-pointer"
+            title="Full screen"
+          >
+            <Maximize2 size={16} />
+          </button>
+        </div>
+      </footer>
+
+      {/* ── Mobile Floating Mini-Player (Visible on screens < md) ── */}
+      {currentTrack && (
+        <div className="md:hidden fixed bottom-[58px] left-2 right-2 z-40 bg-[#282828] rounded-md shadow-2xl border border-white/5 overflow-hidden select-none">
+          <div
+            onClick={() => setIsMobileFullscreenOpen(true)}
+            className="flex items-center justify-between p-2 cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+              <img
+                src={albumImage}
+                alt={currentTrack.name}
+                className={`w-10 h-10 rounded object-cover shadow-sm bg-[#121212] shrink-0 ${
+                  isLoading ? 'opacity-70 animate-pulse' : ''
+                }`}
+              />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-white truncate leading-snug">
+                  {currentTrack.name}
+                </h4>
+                <p className="text-[11px] text-[#b3b3b3] truncate leading-none mt-0.5">
+                  {currentTrack.artists?.map((a) => a.name).join(', ') || artistName}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const status = toggleLikeTrack(currentTrack);
+                  setIsLiked(status);
+                }}
+                className={`p-1.5 transition-colors ${
+                  isLiked ? 'text-spotify-green' : 'text-[#b3b3b3] hover:text-white'
+                }`}
+              >
+                <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePlay();
+                }}
+                disabled={isLoading}
+                className="p-1.5 text-white hover:text-spotify-green transition-colors cursor-pointer"
+              >
+                {isPlaying ? (
+                  <Pause size={22} fill="currentColor" />
+                ) : (
+                  <Play size={22} fill="currentColor" />
+                )}
+              </button>
+            </div>
+          </div>
+          <div className="w-full h-[2px] bg-white/10">
+            <div
+              className="h-full bg-white transition-all rounded-full"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      <MobileFullscreenPlayer
+        isOpen={isMobileFullscreenOpen}
+        onClose={() => setIsMobileFullscreenOpen(false)}
+        onToggleLyrics={onToggleLyrics || (() => {})}
+        onToggleQueue={onToggleQueue || (() => {})}
+        onSelectArtist={onSelectArtist}
+      />
+    </>
   );
 };
