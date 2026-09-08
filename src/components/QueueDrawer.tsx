@@ -7,7 +7,7 @@ interface QueueDrawerProps {
 }
 
 export const QueueDrawer: React.FC<QueueDrawerProps> = ({ isOpen, onClose }) => {
-  const { currentTrack, queue, playTrack } = usePlayer();
+  const { currentTrack, queue, playTrack, removeFromQueue, clearQueue } = usePlayer();
 
   if (!isOpen) return null;
 
@@ -21,7 +21,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ isOpen, onClose }) => 
         <h3 className="font-bold text-base text-white">Queue</h3>
         <button
           onClick={onClose}
-          className="text-spotify-gray hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
+          className="text-spotify-gray hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
           title="Close Queue"
         >
           <X size={18} />
@@ -60,9 +60,18 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ isOpen, onClose }) => 
       {/* Next Up */}
       <div className="flex-1 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-spotify-gray uppercase tracking-wider">
-            Next from: {currentTrack?.album?.name || 'Playlist'}
+          <span className="text-xs font-bold text-spotify-gray uppercase tracking-wider truncate">
+            Next up
           </span>
+          {upNextTracks.length > 0 && (
+            <button
+              onClick={clearQueue}
+              className="text-[11px] font-bold text-spotify-gray hover:text-white hover:underline transition-colors shrink-0 cursor-pointer"
+              title="Clear upcoming songs from queue"
+            >
+              Clear queue
+            </button>
+          )}
         </div>
 
         {upNextTracks.length === 0 ? (
@@ -72,34 +81,50 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ isOpen, onClose }) => 
           </div>
         ) : (
           <div className="space-y-1">
-            {upNextTracks.map((track, idx) => (
-              <div
-                key={track.id || idx}
-                onClick={() => playTrack(track)}
-                className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"
-              >
-                <span className="text-xs font-mono text-spotify-gray w-4 text-center group-hover:hidden">
-                  {idx + 1}
-                </span>
-                <button className="hidden group-hover:block text-white w-4 text-center">
-                  <Play size={12} fill="currentColor" />
-                </button>
+            {upNextTracks.map((track, idx) => {
+              const realIndex = currentIndex !== -1 ? currentIndex + 1 + idx : idx;
+              return (
+                <div
+                  key={`${track.id}-${idx}`}
+                  onClick={() => playTrack(track)}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                    <span className="text-xs font-mono text-spotify-gray w-4 text-center group-hover:hidden">
+                      {idx + 1}
+                    </span>
+                    <button className="hidden group-hover:block text-white w-4 text-center">
+                      <Play size={12} fill="currentColor" />
+                    </button>
 
-                <img
-                  src={track.album?.images?.[0]?.url}
-                  alt={track.name}
-                  className="w-10 h-10 rounded object-cover shrink-0 bg-[#222]"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-white truncate group-hover:text-spotify-green">
-                    {track.name}
-                  </p>
-                  <p className="text-[11px] text-spotify-gray truncate">
-                    {track.artists?.map((a) => a.name).join(', ')}
-                  </p>
+                    <img
+                      src={track.album?.images?.[0]?.url}
+                      alt={track.name}
+                      className="w-10 h-10 rounded object-cover shrink-0 bg-[#222]"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-white truncate group-hover:text-spotify-green">
+                        {track.name}
+                      </p>
+                      <p className="text-[11px] text-spotify-gray truncate">
+                        {track.artists?.map((a) => a.name).join(', ')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFromQueue(track.id, realIndex);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 text-spotify-gray hover:text-white transition-opacity rounded-full hover:bg-white/10 cursor-pointer"
+                    title="Remove from queue"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
