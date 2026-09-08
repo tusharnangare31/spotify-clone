@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Play, Pause, Loader2, Music2, Heart, Plus } from 'lucide-react';
+import { Search, Play, Pause, Loader2, Music2, Heart, Plus, Sparkles, ListPlus, Radio } from 'lucide-react';
 import type { SpotifyAlbum, SpotifyTrack } from '../types/spotify';
-import { searchSpotify, getAlbumTracks } from '../services/spotify';
+import { searchSpotify, getAlbumTracks, getRecommendationsForTrack } from '../services/spotify';
 import { usePlayer } from '../context/PlayerContext';
 import { isTrackLiked, toggleLikeTrack } from '../services/storage';
 
@@ -29,8 +29,11 @@ export const SearchView: React.FC<SearchViewProps> = ({
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [albums, setAlbums] = useState<SpotifyAlbum[]>([]);
   const [searching, setSearching] = useState(false);
+  const [seedTrack, setSeedTrack] = useState<SpotifyTrack | null>(null);
+  const [recommendations, setRecommendations] = useState<SpotifyTrack[]>([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
 
-  const { playTrack, currentTrack, isPlaying } = usePlayer();
+  const { playTrack, currentTrack, isPlaying, addToQueue } = usePlayer();
 
   const suggestedPills = [
     'Arijit Singh',
@@ -80,6 +83,27 @@ export const SearchView: React.FC<SearchViewProps> = ({
     executeSearch(pill);
   };
 
+  const handlePlayFromSearch = async (selectedTrack: SpotifyTrack) => {
+    setSeedTrack(selectedTrack);
+    setLoadingRecs(true);
+    // 1. Immediately play selected track so audio starts without delay
+    playTrack(selectedTrack);
+
+    try {
+      // 2. Query intelligent track radio recommendations
+      const recs = await getRecommendationsForTrack(selectedTrack, 12);
+      setRecommendations(recs);
+      if (recs && recs.length > 0) {
+        // 3. Populate player queue with [selectedTrack, ...recs] for continuous radio autoplay
+        playTrack(selectedTrack, [selectedTrack, ...recs]);
+      }
+    } catch (err) {
+      console.error('Error fetching recommendations:', err);
+    } finally {
+      setLoadingRecs(false);
+    }
+  };
+
   const topTrack = tracks[0];
 
   return (
@@ -127,7 +151,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
               <div className="lg:col-span-2">
                 <h2 className="text-xl font-bold mb-3">Top result</h2>
                 <div
-                  onClick={() => playTrack(topTrack, tracks)}
+                  onClick={() => handlePlayFromSearch(topTrack)}
                   className="bg-spotify-light/60 p-5 rounded-lg hover:bg-spotify-light transition-all duration-200 cursor-pointer group relative flex flex-col justify-between h-[230px]"
                 >
                   <img
@@ -153,6 +177,10 @@ export const SearchView: React.FC<SearchViewProps> = ({
                   </div>
 
                   <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePlayFromSearch(topTrack);
+                    }}
                     className="absolute bottom-5 right-5 w-12 h-12 bg-spotify-green rounded-full flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all shadow-2xl hover:scale-105 active:scale-95"
                     title={`Play ${topTrack.name}`}
                   >
@@ -171,7 +199,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
                   return (
                     <div
                       key={track.id}
-                      onClick={() => playTrack(track, tracks)}
+                      onClick={() => handlePlayFromSearch(track)}
                       className={`flex items-center justify-between p-2 rounded-md hover:bg-white/10 transition-colors cursor-pointer group ${
                         isCurrent ? 'bg-white/15' : ''
                       }`}
@@ -243,6 +271,137 @@ export const SearchView: React.FC<SearchViewProps> = ({
               </div>
             </div>
           </div>
+
+          {/* ── ✨ Recommended for You / Track Radio Section ── */}
+          {seedTrack && (
+            <div className="pt-4 border-t border-white/10 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-spotify-green animate-pulse" />
+                    <h2 className="text-xl font-bold text-white">
+                      Recommended based on "{seedTrack.name}"
+                    </h2>
+                  </div>
+                  <p className="text-xs text-spotify-gray mt-1">
+                    Track Radio • Handpicked songs similar to {seedTrack.artists?.[0]?.name || 'this track'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {recommendations.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => playTrack(seedTrack, [seedTrack, ...recommendations])}
+                        className="flex items-center gap-1.5 text-xs font-bold text-black bg-spotify-green hover:bg-[#1fdf64] px-4 py-2 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all"
+                      >
+                        <Radio size={15} />
+                        <span>Play Radio</span>
+                      </button>
+                      <button
+                        onClick={() => addToQueue(recommendations)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-spotify-gray hover:text-white bg-white/10 hover:bg-white/20 px-3.5 py-2 rounded-full transition-colors"
+                      >
+                        <ListPlus size={15} />
+                        <span>Add all to queue</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {loadingRecs ? (
+                <div className="flex items-center justify-center py-12 gap-3 text-spotify-gray">
+                  <Loader2 className="animate-spin text-spotify-green" size={24} />
+                  <span className="text-sm font-medium">Curating matching songs for you...</span>
+                </div>
+              ) : recommendations.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {recommendations.map((recTrack) => {
+                    const isCurrent = currentTrack?.id === recTrack.id;
+                    return (
+                      <div
+                        key={recTrack.id}
+                        onClick={() =>
+                          playTrack(
+                            recTrack,
+                            [recTrack, ...recommendations.filter((t) => t.id !== recTrack.id)]
+                          )
+                        }
+                        className="bg-spotify-light/60 p-3.5 rounded-lg hover:bg-spotify-light transition-all duration-200 cursor-pointer group flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="aspect-square w-full rounded-md mb-3.5 relative overflow-hidden shadow-lg bg-[#222]">
+                            <img
+                              src={recTrack.album?.images?.[0]?.url}
+                              alt={recTrack.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playTrack(
+                                  recTrack,
+                                  [recTrack, ...recommendations.filter((t) => t.id !== recTrack.id)]
+                                );
+                              }}
+                              className="absolute bottom-2 right-2 w-10 h-10 bg-spotify-green rounded-full flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all shadow-2xl hover:scale-105 active:scale-95"
+                              title={`Play ${recTrack.name}`}
+                            >
+                              <Play size={18} fill="currentColor" className="ml-0.5" />
+                            </button>
+                          </div>
+
+                          <h3
+                            className={`font-bold text-sm truncate mb-1 ${
+                              isCurrent ? 'text-spotify-green' : 'text-white'
+                            }`}
+                          >
+                            {recTrack.name}
+                          </h3>
+                          <p className="text-xs text-spotify-gray truncate">
+                            {recTrack.artists?.map((a) => a.name).join(', ')}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToQueue([recTrack]);
+                            }}
+                            className="text-xs text-spotify-gray hover:text-white flex items-center gap-1 transition-colors"
+                            title="Add to queue"
+                          >
+                            <Plus size={14} /> Queue
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleLikeTrack(recTrack);
+                            }}
+                            className={`p-1 rounded-full ${
+                              isTrackLiked(recTrack.id)
+                                ? 'text-spotify-green'
+                                : 'text-spotify-gray hover:text-white'
+                            }`}
+                            title={isTrackLiked(recTrack.id) ? 'Unlike' : 'Like'}
+                          >
+                            <Heart
+                              size={14}
+                              fill={isTrackLiked(recTrack.id) ? 'currentColor' : 'none'}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-spotify-gray">No similar tracks found.</p>
+              )}
+            </div>
+          )}
 
           {/* Matching Albums Grid */}
           {albums.length > 0 && (

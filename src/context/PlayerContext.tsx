@@ -3,6 +3,7 @@ import { Info } from 'lucide-react';
 import type { SpotifyTrack } from '../types/spotify';
 import { resolveYouTubeVideoId } from '../services/youtubeResolver';
 import { addRecentlyPlayed } from '../services/storage';
+import { getRecommendationsForTrack } from '../services/spotify';
 
 interface PlayerContextType {
   currentTrack: SpotifyTrack | null;
@@ -13,6 +14,7 @@ interface PlayerContextType {
   volume: number;
   queue: SpotifyTrack[];
   playTrack: (track: SpotifyTrack, newQueue?: SpotifyTrack[]) => Promise<void>;
+  addToQueue: (tracks: SpotifyTrack[]) => void;
   togglePlay: () => void;
   nextTrack: () => void;
   prevTrack: () => void;
@@ -122,6 +124,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => clearInterval(timer);
   }, []);
 
+  const addToQueue = (tracks: SpotifyTrack[]) => {
+    setQueue((prev) => [...prev, ...tracks]);
+    showToast(`Added ${tracks.length} track${tracks.length > 1 ? 's' : ''} to queue`);
+  };
+
   const playTrack = async (track: SpotifyTrack, newQueue?: SpotifyTrack[]) => {
     setCurrentTrack(track);
     addRecentlyPlayed(track);
@@ -132,8 +139,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setDuration(Math.floor(track.duration_ms / 1000));
     }
 
-    if (newQueue) {
+    if (newQueue && newQueue.length > 0) {
       setQueue(newQueue);
+    } else {
+      setQueue([track]);
+      // Background auto-enrichment: generate Spotify Track Radio recommendations
+      getRecommendationsForTrack(track, 15).then((recs) => {
+        if (recs && recs.length > 0) {
+          setQueue((curr) => (curr.length <= 1 && curr[0]?.id === track.id ? [track, ...recs] : curr));
+        }
+      });
     }
 
     try {
@@ -171,13 +186,28 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const nextTrack = () => {
+  const nextTrack = async () => {
     if (!currentTrack || queue.length === 0) return;
     const currentIndex = queue.findIndex((t) => t.id === currentTrack.id);
     if (currentIndex !== -1 && currentIndex < queue.length - 1) {
       playTrack(queue[currentIndex + 1]);
-    } else if (queue.length > 0) {
-      playTrack(queue[0]); // Loop back to start
+    } else {
+      // Reached the end of queue: Spotify Autoplay kicks in
+      try {
+        const freshRecs = await getRecommendationsForTrack(currentTrack, 10);
+        const filtered = freshRecs.filter((t) => t.id !== currentTrack.id);
+        if (filtered.length > 0) {
+          showToast('Autoplaying recommended tracks...');
+          setQueue((prev) => [...prev, ...filtered]);
+          playTrack(filtered[0]);
+          return;
+        }
+      } catch (e) {
+        console.error('Autoplay error:', e);
+      }
+      if (queue.length > 0) {
+        playTrack(queue[0]); // Loop back to start
+      }
     }
   };
 
@@ -214,6 +244,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         volume,
         queue,
         playTrack,
+        addToQueue,
         togglePlay,
         nextTrack,
         prevTrack,

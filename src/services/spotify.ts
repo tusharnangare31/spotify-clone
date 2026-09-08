@@ -265,6 +265,75 @@ export async function searchSpotify(query: string): Promise<{
 }
 
 /**
+ * Smart recommendation engine for a given seed track (Spotify Track Radio)
+ */
+export async function getRecommendationsForTrack(
+  track: SpotifyTrack,
+  limit = 12
+): Promise<SpotifyTrack[]> {
+  const primaryArtist = track.artists?.[0]?.name || '';
+  const cleanTitle = track.name.replace(/\s*[\(\[].*?[\)\]]/gi, '').trim();
+
+  // 1. Try Spotify official recommendations API if token available
+  const token = await getSpotifyToken();
+  if (token && !isSpotifyRestricted && track.id) {
+    try {
+      const artistId = track.artists?.[0]?.id || '';
+      let url = `https://api.spotify.com/v1/recommendations?limit=${limit}`;
+      if (artistId && !artistId.includes(' ')) {
+        url += `&seed_artists=${encodeURIComponent(artistId)}`;
+      }
+      if (track.id && !track.id.startsWith('custom-')) {
+        url += `&seed_tracks=${encodeURIComponent(track.id)}`;
+      }
+
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tracks && data.tracks.length > 0) {
+          return data.tracks.filter((t: SpotifyTrack) => t.id !== track.id);
+        }
+      }
+      if (res.status === 403) isSpotifyRestricted = true;
+    } catch {}
+  }
+
+  // 2. Intelligent live similarity search based on primary artist and style
+  try {
+    const queries = [
+      `${primaryArtist} top hits`,
+      `${primaryArtist} best songs`,
+      `${cleanTitle} mix`,
+    ];
+
+    for (const q of queries) {
+      const res = await itunesSearch(q, limit + 5);
+      const filtered = res.tracks.filter(
+        (t) =>
+          t.id !== track.id &&
+          t.name.toLowerCase() !== track.name.toLowerCase() &&
+          !t.name.toLowerCase().includes(cleanTitle.toLowerCase())
+      );
+      if (filtered.length >= 4) {
+        return filtered.slice(0, limit);
+      }
+    }
+
+    // Direct artist fallback
+    if (primaryArtist) {
+      const artistRes = await itunesSearch(primaryArtist, limit + 2);
+      return artistRes.tracks
+        .filter((t) => t.id !== track.id && t.name.toLowerCase() !== track.name.toLowerCase())
+        .slice(0, limit);
+    }
+  } catch (err) {
+    console.error('Error fetching recommendations:', err);
+  }
+
+  return [];
+}
+
+/**
  * Get Playlist Tracks
  */
 export async function getPlaylistTracks(playlistId: string): Promise<SpotifyTrack[]> {
