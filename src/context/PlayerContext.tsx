@@ -5,6 +5,8 @@ import { resolveYouTubeVideoId } from '../services/youtubeResolver';
 import { addRecentlyPlayed } from '../services/storage';
 import { getRecommendationsForTrack } from '../services/spotify';
 
+export type RepeatMode = 'off' | 'all' | 'one';
+
 interface PlayerContextType {
   currentTrack: SpotifyTrack | null;
   isPlaying: boolean;
@@ -13,8 +15,14 @@ interface PlayerContextType {
   duration: number;
   volume: number;
   queue: SpotifyTrack[];
+  isShuffle: boolean;
+  repeatMode: RepeatMode;
   playTrack: (track: SpotifyTrack, newQueue?: SpotifyTrack[]) => Promise<void>;
   addToQueue: (tracks: SpotifyTrack[]) => void;
+  removeFromQueue: (trackId: string, index?: number) => void;
+  clearQueue: () => void;
+  toggleShuffle: () => void;
+  cycleRepeatMode: () => void;
   togglePlay: () => void;
   nextTrack: () => void;
   prevTrack: () => void;
@@ -40,6 +48,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(80);
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -51,6 +61,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const playerRef = useRef<any>(null);
   const isReadyRef = useRef(false);
+  const isShuffleRef = useRef(false);
+  isShuffleRef.current = isShuffle;
+  const repeatModeRef = useRef<RepeatMode>('off');
+  repeatModeRef.current = repeatMode;
+  const queueRef = useRef<SpotifyTrack[]>([]);
+  queueRef.current = queue;
+  const currentTrackRef = useRef<SpotifyTrack | null>(null);
+  currentTrackRef.current = currentTrack;
+  const progressRef = useRef(0);
+  progressRef.current = progress;
 
   // 1. Initialize YouTube Iframe API once on mount
   useEffect(() => {
@@ -83,7 +103,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               setIsPlaying(false);
             } else if (e.data === 0) {
               setIsPlaying(false);
-              nextTrack();
+              handleTrackEnded();
             }
           },
         },
@@ -127,6 +147,50 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addToQueue = (tracks: SpotifyTrack[]) => {
     setQueue((prev) => [...prev, ...tracks]);
     showToast(`Added ${tracks.length} track${tracks.length > 1 ? 's' : ''} to queue`);
+  };
+
+  const removeFromQueue = (trackId: string, index?: number) => {
+    setQueue((prev) => {
+      if (typeof index === 'number') {
+        const copy = [...prev];
+        copy.splice(index, 1);
+        return copy;
+      }
+      return prev.filter((t) => t.id !== trackId);
+    });
+    showToast('Removed from queue');
+  };
+
+  const clearQueue = () => {
+    if (currentTrack) {
+      setQueue([currentTrack]);
+    } else {
+      setQueue([]);
+    }
+    showToast('Queue cleared');
+  };
+
+  const toggleShuffle = () => {
+    setIsShuffle((prev) => {
+      const next = !prev;
+      showToast(next ? 'Shuffle enabled' : 'Shuffle disabled');
+      return next;
+    });
+  };
+
+  const cycleRepeatMode = () => {
+    setRepeatMode((prev) => {
+      if (prev === 'off') {
+        showToast('Repeat all enabled');
+        return 'all';
+      }
+      if (prev === 'all') {
+        showToast('Repeat one enabled');
+        return 'one';
+      }
+      showToast('Repeat disabled');
+      return 'off';
+    });
   };
 
   const playTrack = async (track: SpotifyTrack, newQueue?: SpotifyTrack[]) => {
@@ -186,36 +250,89 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const handleTrackEnded = () => {
+    // 1. Repeat One: replay the exact same song
+    if (repeatModeRef.current === 'one' && currentTrackRef.current) {
+      if (playerRef.current?.seekTo && playerRef.current?.playVideo) {
+        playerRef.current.seekTo(0, true);
+        playerRef.current.playVideo();
+        setProgress(0);
+        setIsPlaying(true);
+      } else {
+        playTrack(currentTrackRef.current);
+      }
+      return;
+    }
+    nextTrack();
+  };
+
   const nextTrack = async () => {
-    if (!currentTrack || queue.length === 0) return;
-    const currentIndex = queue.findIndex((t) => t.id === currentTrack.id);
-    if (currentIndex !== -1 && currentIndex < queue.length - 1) {
-      playTrack(queue[currentIndex + 1]);
-    } else {
-      // Reached the end of queue: Spotify Autoplay kicks in
-      try {
-        const freshRecs = await getRecommendationsForTrack(currentTrack, 10);
-        const filtered = freshRecs.filter((t) => t.id !== currentTrack.id);
-        if (filtered.length > 0) {
-          showToast('Autoplaying recommended tracks...');
-          setQueue((prev) => [...prev, ...filtered]);
-          playTrack(filtered[0]);
-          return;
-        }
-      } catch (e) {
-        console.error('Autoplay error:', e);
+    const curTrack = currentTrackRef.current;
+    const currentQ = queueRef.current;
+    if (!curTrack || currentQ.length === 0) return;
+
+    const currentIndex = currentQ.findIndex((t) => t.id === curTrack.id);
+
+    // 1. Shuffle mode: pick a random track from remaining queue
+    if (isShuffleRef.current && currentQ.length > 1) {
+      const otherIndices = currentQ.map((_, i) => i).filter((i) => i !== currentIndex);
+      if (otherIndices.length > 0) {
+        const randomIdx = otherIndices[Math.floor(Math.random() * otherIndices.length)];
+        playTrack(currentQ[randomIdx]);
+        return;
       }
-      if (queue.length > 0) {
-        playTrack(queue[0]); // Loop back to start
+    }
+
+    // 2. Normal sequential playback
+    if (currentIndex !== -1 && currentIndex < currentQ.length - 1) {
+      playTrack(currentQ[currentIndex + 1]);
+      return;
+    }
+
+    // 3. Repeat All: loop back to beginning
+    if (repeatModeRef.current === 'all') {
+      if (currentQ.length > 0) {
+        playTrack(currentQ[0]);
+        return;
       }
+    }
+
+    // 4. Autoplay recommendations if repeat is off
+    try {
+      const freshRecs = await getRecommendationsForTrack(curTrack, 10);
+      const filtered = freshRecs.filter((t) => t.id !== curTrack.id);
+      if (filtered.length > 0) {
+        showToast('Autoplaying recommended tracks...');
+        setQueue((prev) => [...prev, ...filtered]);
+        playTrack(filtered[0]);
+        return;
+      }
+    } catch (e) {
+      console.error('Autoplay error:', e);
+    }
+
+    // Default loop fallback
+    if (currentQ.length > 0) {
+      playTrack(currentQ[0]);
     }
   };
 
   const prevTrack = () => {
-    if (!currentTrack || queue.length === 0) return;
-    const currentIndex = queue.findIndex((t) => t.id === currentTrack.id);
+    const curTrack = currentTrackRef.current;
+    const currentQ = queueRef.current;
+    if (!curTrack || currentQ.length === 0) return;
+
+    // Official Spotify behavior: if song > 3s, restart from 0:00
+    if (progressRef.current > 3) {
+      seekTo(0);
+      return;
+    }
+
+    const currentIndex = currentQ.findIndex((t) => t.id === curTrack.id);
     if (currentIndex > 0) {
-      playTrack(queue[currentIndex - 1]);
+      playTrack(currentQ[currentIndex - 1]);
+    } else {
+      seekTo(0);
     }
   };
 
@@ -243,8 +360,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         duration,
         volume,
         queue,
+        isShuffle,
+        repeatMode,
         playTrack,
         addToQueue,
+        removeFromQueue,
+        clearQueue,
+        toggleShuffle,
+        cycleRepeatMode,
         togglePlay,
         nextTrack,
         prevTrack,

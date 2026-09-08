@@ -9,6 +9,7 @@ import {
   Pause,
   SkipForward,
   Repeat,
+  Repeat1,
   Mic2,
   ListMusic,
 } from 'lucide-react';
@@ -36,14 +37,16 @@ export const MobileFullscreenPlayer: React.FC<MobileFullscreenPlayerProps> = ({
     isLoading,
     progress,
     duration,
+    isShuffle,
+    repeatMode,
+    toggleShuffle,
+    cycleRepeatMode,
     togglePlay,
     nextTrack,
     prevTrack,
     seekTo,
   } = usePlayer();
 
-  const [isShuffle, setIsShuffle] = useState(false);
-  const [isRepeat, setIsRepeat] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragProgress, setDragProgress] = useState(0);
@@ -194,11 +197,11 @@ export const MobileFullscreenPlayer: React.FC<MobileFullscreenPlayerProps> = ({
         {/* Playback Controls (Shuffle, Prev, Play, Next, Repeat) */}
         <div className="flex items-center justify-between pt-1 px-1">
           <button
-            onClick={() => setIsShuffle((v) => !v)}
+            onClick={toggleShuffle}
             className={`p-2 transition-colors relative ${
               isShuffle ? 'text-spotify-green' : 'text-white/70 hover:text-white'
             }`}
-            title="Shuffle"
+            title={isShuffle ? 'Disable shuffle' : 'Enable shuffle'}
           >
             <Shuffle size={20} />
             {isShuffle && (
@@ -236,14 +239,20 @@ export const MobileFullscreenPlayer: React.FC<MobileFullscreenPlayerProps> = ({
           </button>
 
           <button
-            onClick={() => setIsRepeat((v) => !v)}
+            onClick={cycleRepeatMode}
             className={`p-2 transition-colors relative ${
-              isRepeat ? 'text-spotify-green' : 'text-white/70 hover:text-white'
+              repeatMode !== 'off' ? 'text-spotify-green' : 'text-white/70 hover:text-white'
             }`}
-            title="Repeat"
+            title={
+              repeatMode === 'off'
+                ? 'Enable repeat'
+                : repeatMode === 'all'
+                ? 'Enable repeat one'
+                : 'Disable repeat'
+            }
           >
-            <Repeat size={20} />
-            {isRepeat && (
+            {repeatMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
+            {repeatMode !== 'off' && (
               <span className="w-1 h-1 bg-spotify-green rounded-full absolute bottom-1 left-1/2 -translate-x-1/2" />
             )}
           </button>
