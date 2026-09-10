@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, User } from 'lucide-react';
 import type { SpotifyAlbum, SpotifyTrack } from './types/spotify';
-import { PlayerProvider } from './context/PlayerContext';
+import { PlayerProvider, usePlayer } from './context/PlayerContext';
 import { Sidebar } from './components/Sidebar';
 import { PlayerBar } from './components/PlayerBar';
 import { HomeView } from './components/HomeView';
@@ -35,6 +35,101 @@ function SpotifyApp() {
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(true);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [isLyricsOpen, setIsLyricsOpen] = useState(false);
+
+  const {
+    progress,
+    duration,
+    volume,
+    setVolume,
+    togglePlay,
+    nextTrack,
+    prevTrack,
+    seekTo,
+  } = usePlayer();
+
+  const prevVolumeRef = useRef(volume > 0 ? volume : 80);
+  if (volume > 0) {
+    prevVolumeRef.current = volume;
+  }
+
+  // Official Spotify Desktop Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore keystrokes inside input / textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Space: Toggle Play / Pause
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+        return;
+      }
+
+      // Shift + Right Arrow: Next Track
+      if (e.shiftKey && e.code === 'ArrowRight') {
+        e.preventDefault();
+        nextTrack();
+        return;
+      }
+
+      // Shift + Left Arrow: Previous Track
+      if (e.shiftKey && e.code === 'ArrowLeft') {
+        e.preventDefault();
+        prevTrack();
+        return;
+      }
+
+      // ArrowRight: Seek forward 5s
+      if (e.code === 'ArrowRight' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        seekTo(Math.min(duration, progress + 5));
+        return;
+      }
+
+      // ArrowLeft: Seek backward 5s
+      if (e.code === 'ArrowLeft' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        seekTo(Math.max(0, progress - 5));
+        return;
+      }
+
+      // M: Toggle Mute
+      if (e.code === 'KeyM' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        if (volume > 0) {
+          prevVolumeRef.current = volume;
+          setVolume(0);
+        } else {
+          setVolume(prevVolumeRef.current || 80);
+        }
+        return;
+      }
+
+      // L: Toggle Lyrics
+      if (e.code === 'KeyL' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setIsLyricsOpen((prev) => !prev);
+        return;
+      }
+
+      // Q: Toggle Queue
+      if (e.code === 'KeyQ' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setIsQueueOpen((prev) => !prev);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, nextTrack, prevTrack, seekTo, progress, duration, volume, setVolume]);
 
   const resetOverlays = () => {
     setSelectedAlbum(null);
