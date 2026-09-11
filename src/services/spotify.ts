@@ -58,27 +58,54 @@ function upscaleArtwork(url?: string): string {
 }
 
 /**
- * Fallback search using iTunes open metadata API
+ * Fallback search using iTunes open metadata API with intelligent regional store merging
  */
-async function itunesSearch(query: string, limit = 15): Promise<{ tracks: SpotifyTrack[]; albums: SpotifyAlbum[] }> {
+async function itunesSearch(
+  query: string,
+  limit = 15
+): Promise<{ tracks: SpotifyTrack[]; albums: SpotifyAlbum[] }> {
   try {
-    const res = await fetch(
-      `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=${limit}`
-    );
-    if (!res.ok) return { tracks: [], albums: [] };
+    const fetchStore = async (countryParam?: string) => {
+      try {
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(
+          query
+        )}&entity=song&limit=${limit}${countryParam ? `&country=${countryParam}` : ''}`;
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.results || []).map((item: any) => ({
+          id: String(item.trackId),
+          name: item.trackName,
+          artists: [{ id: String(item.artistId), name: item.artistName }],
+          album: {
+            id: String(item.collectionId || item.trackId),
+            name: item.collectionName || item.trackName,
+            images: [{ url: upscaleArtwork(item.artworkUrl100) }],
+          },
+          duration_ms: item.trackTimeMillis || 210000,
+        }));
+      } catch {
+        return [];
+      }
+    };
 
-    const data = await res.json();
-    const tracks: SpotifyTrack[] = (data.results || []).map((item: any) => ({
-      id: String(item.trackId),
-      name: item.trackName,
-      artists: [{ id: String(item.artistId), name: item.artistName }],
-      album: {
-        id: String(item.collectionId || item.trackId),
-        name: item.collectionName || item.trackName,
-        images: [{ url: upscaleArtwork(item.artworkUrl100) }],
-      },
-      duration_ms: item.trackTimeMillis || 210000,
-    }));
+    // 1. Primary search: country=IN (provides complete coverage for Indian indie, Bollywood, Punjabi, and international hits)
+    let tracks: SpotifyTrack[] = await fetchStore('IN');
+
+    // 2. If results are sparse (< 5), query global/US store and merge deduplicated tracks
+    if (tracks.length < 5) {
+      const usTracks = await fetchStore('US');
+      const seen = new Set(
+        tracks.map((t) => `${t.name.toLowerCase()}::${t.artists[0]?.name.toLowerCase()}`)
+      );
+      for (const t of usTracks) {
+        const key = `${t.name.toLowerCase()}::${t.artists[0]?.name.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          tracks.push(t);
+        }
+      }
+    }
 
     // Deduplicate albums
     const seenAlbums = new Set<string>();
@@ -90,7 +117,7 @@ async function itunesSearch(query: string, limit = 15): Promise<{ tracks: Spotif
       }
     }
 
-    return { tracks, albums };
+    return { tracks: tracks.slice(0, limit), albums };
   } catch (err) {
     console.error('Fallback search error:', err);
     return { tracks: [], albums: [] };
@@ -246,21 +273,24 @@ export async function searchSpotify(query: string): Promise<{
   if (token && !isSpotifyRestricted) {
     try {
       const res = await fetch(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track,album&limit=15`,
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track,album&limit=15&market=IN`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.ok) {
         const data = await res.json();
-        return {
-          tracks: data.tracks?.items || [],
-          albums: data.albums?.items || [],
-        };
+        const tracks = data.tracks?.items || [];
+        if (tracks.length > 0) {
+          return {
+            tracks,
+            albums: data.albums?.items || [],
+          };
+        }
       }
       if (res.status === 403) isSpotifyRestricted = true;
     } catch {}
   }
 
-  // Fallback to open search
+  // Fallback to open multi-store search
   return itunesSearch(query, 15);
 }
 

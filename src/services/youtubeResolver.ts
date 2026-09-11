@@ -41,6 +41,7 @@ const CURATED_TRACK_IDS: Record<string, string> = {
   'tere vaaste': 'EGqQXvgf_pY',
   'lut gaye': 'sCBBnG_H78A',
   'heeriye': 'RLzC55ai0eo',
+  'afsos': '2FhgKp_lfJQ',
 };
 
 // In-memory runtime cache
